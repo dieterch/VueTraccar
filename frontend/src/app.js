@@ -56,6 +56,7 @@ export async function getTravels() {
     travel.value = travels.value[travels.value.length - 1]
     startdate.value = new Date(travel.value.ab);
     stopdate.value = new Date(travel.value.an);
+    getPolygone()
     }
 
 export const route = ref({})
@@ -89,9 +90,13 @@ export async function downloadkml() {
 }
 
 export const polygone = ref([])
+export const center = ref({lat: 0, lng: 0})
+export const zoom = ref(10)
 export async function getPolygone() {
     const data = await rpost('/plotmaps', traccar_payload())
     //console.log('data:', data)
-    polygone.value = data
-    //console.log('polygone:', polygone.value)
+    polygone.value = data['plotdata']
+    zoom.value = data['zoom']
+    center.value = data['center']
+    console.log('polygone:', polygone.value, 'zoom', zoom.value, 'center:', center.value)
 }

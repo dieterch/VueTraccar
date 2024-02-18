@@ -3,8 +3,14 @@ import { ref } from 'vue'
 import { startdate, stopdate, getRoute, getTravels, getPolygone,
     travels, travel, tracdate, downloadkml } from '@/app';
 
-function setStartDate(params) { startdate.value = params;}
-function setStopDate(params) { stopdate.value = params;}
+function setStartDate(params) { 
+    startdate.value = params;
+    getPolygone()
+}
+function setStopDate(params) { 
+    stopdate.value = params;
+    getPolygone()
+}
 
 async function update_travel(item) {
     var index = travels.value.map(function(e) { return e.title; }).indexOf(item);
@@ -12,6 +18,7 @@ async function update_travel(item) {
     travel.value = travels.value[index]
     startdate.value = new Date(travels.value[index].ab);
     stopdate.value = new Date(travels.value[index].an);
+    getPolygone()
 }
 
 getTravels()
@@ -36,7 +43,7 @@ getTravels()
             >
         <DateDialog :key="startdate" :datum="startdate" @getDate="setStartDate"/>
         <DateDialog :key="startdate" :datum="stopdate" @getDate="setStopDate"/>
-            <v-btn
+            <!--v-btn
                 color="transparent"
                 prepend-icon="mdi-map-outline"
                 @click="getPolygone"
@@ -44,7 +51,7 @@ getTravels()
                 flat
                 class="d-flex">
                 Plot
-            </v-btn>
+            </v-btn-->
             <v-btn
                 color="transparent"
                 prepend-icon="mdi-google-earth"

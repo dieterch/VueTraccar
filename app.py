@@ -9,6 +9,7 @@
 import uvicorn
 import asyncio
 import json
+import math
 import os
 from pprint import pformat as pf
 from pprint import pprint as pp
@@ -109,8 +110,27 @@ async def plotmaps():
         req = await request.json
         pp(req)
         data = traccar.getData(cfg, req)
-        plotdata = [{"lat": str(d['latitude']), "lng": str(d['longitude'])} for d in data]
-        return jsonify(plotdata)
+        south = min([d['latitude'] for d in data])
+        north = max([d['latitude'] for d in data])
+        centerlat = (south + north) / 2
+        extensionlat = (north - south)
+        east = min([d['longitude'] for d in data])
+        west = max([d['longitude'] for d in data])
+        centerlng = (east + west) / 2
+        extensionlng = (west - east)
+        ext= max(extensionlat, extensionlng)
+        extroot = math.sqrt(extensionlat**2 + extensionlng**2)
+        #zoom = round(0.0347*(ext**2)-0.855*ext+10.838)
+        zoom = round(0.0347*(extroot**2)-0.855*extroot+10.838)
+        #zoom = round(0.0425*(ext**2)-1.0459*ext+11.26)
+        print(f"centerlat: {centerlat}, centerlng: {centerlng}, extension: {ext}, extroot: {extroot}, zoom: {zoom}")
+        plotdata = [{"lat": d['latitude'], "lng": d['longitude']} for d in data]
+        ret = {
+            "center": {"lat": centerlat, "lng": centerlng},
+            "zoom": zoom,
+            "plotdata": plotdata
+        }
+        return ret
 
 # deliver the vuetify frontend
 @app.route("/")
