@@ -1,4 +1,4 @@
-import { ref, computed } from 'vue'
+import { ref, shallowRef, computed } from 'vue'
 import axios from 'axios';
 
 export const host = ref(window.location.host)
@@ -38,13 +38,6 @@ export async function rpost(api, data, headers = { 'Content-type': 'application/
         alert(`${endpoint} \n` + String(e));
     }
 }
-
-export const map_api_key = ref('')
-export async function getMapApiKey() {
-    const data = await rget('/map_api_key')
-    map_api_key.value = data['api-key']
-    console.log('map_api_key:', data, map_api_key.value)
-}   
 
 export function traccar_payload() {
     return {

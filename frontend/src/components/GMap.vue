@@ -1,18 +1,7 @@
-<template>
-  <GoogleMap 
-    api-key="" 
-    style="width: 100%; 
-    height: 500px" 
-    :center="center" 
-    :zoom="10">
-    <Polyline :options="flightPath" />
-  </GoogleMap>
-</template>
-
 <script setup>
-import { ref, onBeforeMount } from "vue";
+import { ref } from "vue";
 import { GoogleMap, Polyline } from "vue3-google-map";
-import {  map_api_key, getMapApiKey } from '@/app';
+import { maps_api_key } from '@/secret';
 
 const center = ref({ lat: 47.389207790740315, lng: 11.774475611608988 });
 const flightPath = ref({
@@ -27,7 +16,15 @@ const flightPath = ref({
   strokeWeight: 2,
 });
 
-onBeforeMount(() => {
-    getMapApiKey()
-})
 </script>
+
+<template>
+  <GoogleMap
+    :api-key="maps_api_key" 
+    style="width: 100%; 
+    height: 500px" 
+    :center="center" 
+    :zoom="10">
+    <Polyline :options="flightPath" />
+  </GoogleMap>
+</template>

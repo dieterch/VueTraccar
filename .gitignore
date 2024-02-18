@@ -154,3 +154,4 @@ cython_debug/
 
 dist/static/*
 config.toml
+secret.js

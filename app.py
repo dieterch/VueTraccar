@@ -60,11 +60,6 @@ async def add_header(response):
     response.headers['Cache-Control'] = 'public, max-age=0'
     return response
 
-# test route
-@app.route("/map_api_key")
-async def map_api_key():
-    return {"api-key": cfg['maps-api-key']}
-
 @app.route("/devices")
 async def devices():
     return traccar.getDevices(cfg)
@@ -134,7 +129,7 @@ if __name__ == '__main__':
         if 'PRODUCTION' in os.environ:
             uvicorn.run('app:app', host='0.0.0.0', port=5999, log_level="info")
         else:
-            uvicorn.run('app:app', host='0.0.0.0', port=5999, log_level="info", reload=True, reload_dirs =['.','./dist'], reload_includes=['*.py','*.js'])
+            uvicorn.run('app:app', host='0.0.0.0', port=5999, log_level="info", reload=True, reload_dirs =['.','./dist'], reload_includes=['*.py','*.js','*.toml'])
             #asyncio.run(app.run_task(host='0.0.0.0', port=5999, debug=True))
     except Exception as e:
         print(str(e))
