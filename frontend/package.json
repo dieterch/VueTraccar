@@ -4,6 +4,7 @@
   "scripts": {
     "dev": "cross-env NODE_OPTIONS='--no-warnings' vite --host",
     "build": "vite build",
+    "justbuild": "vite build --mode production --watch false",
     "preview": "vite preview"
   },
   "dependencies": {
