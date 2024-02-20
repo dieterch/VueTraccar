@@ -29,34 +29,22 @@ from dtraccar import kml, traccar2 as traccar
 with open("config.toml", mode="rb") as fp:
     cfg = toml.load(fp)
 
-# overwrite jinja2 delimiters to avoid conflict with vue delimiters, was previosly used by me (Dieter Chvatal)
-# in order to transfer information from the backend to the frontend, while the frontend does not know its host ip address.
-# window.location.host and winndow.location.protocol is now used to get the host ip address. The code is left here for reference.
 # https://stackoverflow.com/questions/37039835/how-to-change-jinja2-delimiters
 class CustomQuart(Quart):
     jinja_options = Quart.jinja_options.copy()
     jinja_options.update(dict( block_start_string='<%', block_end_string='%>', variable_start_string='%%', 
                               variable_end_string='%%',comment_start_string='<#',comment_end_string='#>',))
 
-
-# instantiate the app
-# the frontend is built with vuetify.js and is located in the dist folder
-# you have to set the static folder to the dist folder and the template folder to the dist folder in the backend like below
-# and edit vite.config.js to output to the dist folder within the frontend. in adddition you have to
-# run 'npm run build' after each modification of the frontend. Once you run this once, the included watch mode will
-# take care of the rest.
+# use the same directories as in the vite.config.js
 app = CustomQuart(__name__, static_folder = "dist/static", template_folder = "dist", static_url_path = "/static")
 app = cors(app, allow_origin="*")
 app.config.from_object(__name__)
 
 
-# uncomment to disable caching, which is useful for development when you are actively changing the frontend
+# force IE or Chrome compatibility, cache rendered page for x minutes.
+# uncomment to disable caching, e.g. for development when you are changing the frontend often.
 @app.after_request
 async def add_header(response):
-    """
-    Add headers to both force latest IE rendering engine or Chrome Frame,
-    and also to cache the rendered page for x minutes.
-    """
     response.headers['X-UA-Compatible'] = 'IE=Edge,chrome=1'
     response.headers['Cache-Control'] = 'public, max-age=0'
     return response
@@ -89,27 +77,20 @@ async def travels():
         req = await request.json
         return traccar.getTravels(cfg, req)
 
+# route to download kml file
 @app.route("/download.kml", methods=['POST'])
 async def downloadkml():
     await request.get_data()
     if request.method == 'POST':
         req = await request.json
-        pp(req)
-        data = traccar.getData(cfg, req)
-        kmldata = kml.tokml(data)
-        file_name = req['name'] + '.kml'
-        file_path = os.getcwd() + "/dist/static/"
-        full_path = file_path + file_name
-        kml.writeKML(cfg, req, full_path, kmldata)
+        file_name , full_path = traccar.downloadkml(cfg, req)
         return await send_file(full_path, attachment_filename=file_name, as_attachment=True)
-
 
 @app.route("/plotmaps", methods=['POST'])
 async def plotmaps():
     await request.get_data()
     if request.method == 'POST':
         req = await request.json
-        pp(req)
         return traccar.plotmaps(cfg, req)
 
 # deliver the vuetify frontend

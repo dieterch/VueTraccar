@@ -1,8 +1,10 @@
 import arrow
-import json
 import math
+import os
 import requests
+from statistics import mean
 from pprint import pprint as pp
+from . import kml
 import tomli as tml
 
 ############################## Class Interface ##############################
@@ -110,6 +112,10 @@ class Traccar:
         except requests.exceptions.HTTPError as err:
             raise SystemExit(err)
 
+    def _timediff(self, pt1, pt2):
+        a = arrow.get(pt1['fixTime'])
+        b = arrow.get(pt2['fixTime'])
+        return (b - a).total_seconds()
 
     def _distance(self, pt1, pt2):
         R = 6373.0
@@ -124,11 +130,39 @@ class Traccar:
         distance = R * c
         return distance
 
-    def _totaldistance(self, route):
-        total = 0
+    def _analyzeroute(self, route):
+        total_dist = 0
+        stand_periods = []
+        sample_period = []
+        stop = {}
+        lat = []
+        lng = []
+        start = {}
+        standstill = False
         for i in range(len(route)-1):
-            total += self._distance(route[i],route[i+1])
-        return total
+            d = self._distance(route[i],route[i+1])
+            total_dist += d
+            if d < 0.1:
+                if not standstill:
+                    standstill = True
+                    stop = route[i]
+                sample_period.append(
+                    {'lat': route[i]['latitude'],
+                     'lng': route[i]['longitude']})
+            else:
+                if standstill:
+                    standstill = False
+                    start = route[i]
+                    period = self._timediff(stop, start)
+                    if period > 12*60*60:
+                        stand_periods.append(
+                             {'period': round(period//360.0/10.0), 
+                             'lat': mean([p['lat'] for p in sample_period]),
+                             'lng': mean([p['lng'] for p in sample_period])})
+                        sample_period = []
+                    else:
+                        sample_period = []
+        return total_dist, stand_periods
 
     def _bounds(self, route):
         return {
@@ -152,19 +186,65 @@ class Traccar:
         print(f"dimension: {ext:.1f}, zoom: {zoom}")
         return zoom
 
+    def _clean_stand_periods(self, stand_periods):
+        for i in range(len(stand_periods)):
+            for j in range(len(stand_periods)):
+                if i != j:
+                    latdiff = stand_periods[i]['lat'] - stand_periods[j]['lat']
+                    lngdiff = stand_periods[i]['lng'] - stand_periods[j]['lng']
+                    diff = math.sqrt(latdiff**2 + lngdiff**2)
+                    if  diff < 0.005:
+                        if (stand_periods[i]['period'] > 0 and stand_periods[j]['period'] > 0):
+                            print(f"combine {i}-{j}, diff: {diff:.4f}")
+                            stand_periods[i]['period'] += stand_periods[j]['period']
+                            stand_periods[j]['period'] = 0
+        return [d for d in stand_periods if d['period'] > 0]
+
     def plot(self, cfg=None, req=None):
         cfg = self._cfghelp(cfg)
         self.getRouteData(cfg, req)
         bounds = self._bounds(self._route)
         print(f"centerlat: {self._center(bounds)['lat']:.1f}, centerlng: {self._center(bounds)['lng']:.1f}")
         plotdata = [{"lat": d['latitude'], "lng": d['longitude']} for d in self._route]
+        total_dist, stand_periods = self._analyzeroute(self._route)
+        #pp(stand_periods[:5])
         return {
             "bounds": bounds,
             "center": self._center(bounds),
             "zoom": self._zoom(bounds),
-            "distance": f"{self._totaldistance(self._route):.0f} km",
+            "distance": f"{total_dist:.0f} km",
+            "markers": self._clean_stand_periods(stand_periods),
             "plotdata": plotdata
         }
+
+    def _kmlpar(self, req):
+        #{'device': 4,
+        #'enddate': '2023-09-02T00:00:00Z',
+        #'maxpoints': '2500',
+        #'name': '2023-08-10 (22 Tage)',
+        #'startdate': '2023-08-10T00:00:00Z'}
+        if req is None:
+            par = { 'name': self._cfg['kmlname'],
+                    'maxpoints': self._cfg['maxpoints'],
+                    'device': self._cfg['devid'],
+                    }
+        else:
+            par = req
+        return par
+                
+                
+    def kml(self, cfg=None, req=None):
+        cfg = self._cfghelp(cfg)
+        req = self._kmlpar(req)
+        print(f"in T.kml: req: {req}")
+        self.getRouteData(cfg, req)
+        data = self._route
+        kmldata = kml.tokml(data)
+        file_name = req['name'] + '.kml' if req is not None else 'route.kml'
+        file_path = os.getcwd() + "/dist/static/"
+        full_path = file_path + file_name
+        kml.writeKML(cfg, req, full_path, kmldata)
+        return file_name, full_path
         
 ############################# maintain functional interface #################
 T = Traccar()
@@ -186,3 +266,6 @@ def getData(cfg, par):
 
 def plotmaps(cfg, par):
     return T.plot(cfg, par)
+
+def downloadkml(cfg, par):
+    return T.kml(cfg, par)

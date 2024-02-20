@@ -92,11 +92,23 @@ export async function downloadkml() {
 export const polygone = ref([])
 export const center = ref({lat: 0, lng: 0})
 export const zoom = ref(10)
+export const distance = ref('____ km')
+export const locations = ref([])
+// export const bounds = computed(() => {
+//     let lat = polygone.value.map(p => p.lat)
+//     let lng = polygone.value.map(p => p.lng)
+//     return {
+//         sw: {lat: Math.min(...lat), lng: Math.min(...lng)},
+//         ne: {lat: Math.max(...lat), lng: Math.max(...lng)}
+//     }
+// })
 export async function getPolygone() {
     const data = await rpost('/plotmaps', traccar_payload())
-    //console.log('data:', data)
+    console.log('data:', data)
     polygone.value = data['plotdata']
     zoom.value = data['zoom']
     center.value = data['center']
-    console.log('polygone:', polygone.value, 'zoom', zoom.value, 'center:', center.value)
+    distance.value = data['distance']
+    locations.value = data['markers']
+    // console.log('polygone:', polygone.value, 'zoom', zoom.value, 'center:', center.value)
 }
