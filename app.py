@@ -24,7 +24,7 @@ except ImportError as e:
     print('tomllib not found. using "tomli" instead.')
     import tomli as toml
 
-from dtraccar import kml, traccar
+from dtraccar import kml, traccar2 as traccar
 
 with open("config.toml", mode="rb") as fp:
     cfg = toml.load(fp)
@@ -103,34 +103,14 @@ async def downloadkml():
         kml.writeKML(cfg, req, full_path, kmldata)
         return await send_file(full_path, attachment_filename=file_name, as_attachment=True)
 
+
 @app.route("/plotmaps", methods=['POST'])
 async def plotmaps():
     await request.get_data()
     if request.method == 'POST':
         req = await request.json
         pp(req)
-        data = traccar.getData(cfg, req)
-        south = min([d['latitude'] for d in data])
-        north = max([d['latitude'] for d in data])
-        centerlat = (south + north) / 2
-        extensionlat = (north - south)
-        east = min([d['longitude'] for d in data])
-        west = max([d['longitude'] for d in data])
-        centerlng = (east + west) / 2
-        extensionlng = (west - east)
-        ext= max(extensionlat, extensionlng)
-        extroot = math.sqrt(extensionlat**2 + extensionlng**2)
-        #zoom = round(0.0347*(ext**2)-0.855*ext+10.838)
-        zoom = round(0.0347*(extroot**2)-0.855*extroot+10.838)
-        #zoom = round(0.0425*(ext**2)-1.0459*ext+11.26)
-        print(f"centerlat: {centerlat}, centerlng: {centerlng}, extension: {ext}, extroot: {extroot}, zoom: {zoom}")
-        plotdata = [{"lat": d['latitude'], "lng": d['longitude']} for d in data]
-        ret = {
-            "center": {"lat": centerlat, "lng": centerlng},
-            "zoom": zoom,
-            "plotdata": plotdata
-        }
-        return ret
+        return traccar.plotmaps(cfg, req)
 
 # deliver the vuetify frontend
 @app.route("/")
