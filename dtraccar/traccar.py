@@ -6,6 +6,7 @@ from statistics import mean
 from pprint import pprint as pp
 from . import kml
 import tomli as tml
+import googlemaps
 
 ############################## Class Interface ##############################
    
@@ -13,6 +14,7 @@ class Traccar:
     def __init__(self, cfgfile='config.toml'):
         with open(cfgfile, mode="rb") as fp:
             self._cfg = tml.load(fp)
+        self.gmaps = googlemaps.Client(key=self._cfg['mapsapikey'])
             
     @property
     def cfg(self):
@@ -155,10 +157,17 @@ class Traccar:
                     start = route[i]
                     period = self._timediff(stop, start)
                     if period > 12*60*60:
+                        plat = mean([p['lat'] for p in sample_period])
+                        plng = mean([p['lng'] for p in sample_period])
+                        address = self.gmaps.reverse_geocode((plat, plng))
+                        #pp(address)
                         stand_periods.append(
-                             {'period': round(period//360.0/10.0), 
-                             'lat': mean([p['lat'] for p in sample_period]),
-                             'lng': mean([p['lng'] for p in sample_period])})
+                             {'period': round(period//360.0/10.0),
+                              'country': address[0]['address_components'][-2]['long_name'], # 'country': 'Austria',
+                              #'fulladdress': address, 
+                              'address': address[0]['formatted_address'], # 'address': 'Fiecht 1, 6235 Reith im Alpbachtal, Austria
+                             'lat': plat,
+                             'lng': plng,})
                         sample_period = []
                     else:
                         sample_period = []

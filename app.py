@@ -24,7 +24,7 @@ except ImportError as e:
     print('tomllib not found. using "tomli" instead.')
     import tomli as toml
 
-from dtraccar import kml, traccar2 as traccar
+from dtraccar import kml, traccar
 
 with open("config.toml", mode="rb") as fp:
     cfg = toml.load(fp)

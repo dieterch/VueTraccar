@@ -1,6 +1,6 @@
 <script setup>
-import { ref, watch } from "vue";
-import { GoogleMap, MarkerCluster, Marker, CustomMarker, Polyline, InfoWindow } from "vue3-google-map";
+import { ref } from "vue";
+import { GoogleMap, MarkerCluster, Marker, Polyline, InfoWindow } from "vue3-google-map";
 import { polygone, center, zoom, locations } from '@/app';
 import { maps_api_key } from '@/secret';
 
@@ -12,12 +12,6 @@ const flightPath = ref({
     strokeOpacity: 1.0,
     strokeWeight: 2,
   });
-
-const infowindow = ref(false); // Will be open when mounted
-
-watch(infowindow, (v) => {
-  //alert('infowindow has been ' + (v ? 'opened' : 'closed'));
-});
 
 </script>
 
@@ -34,19 +28,24 @@ watch(infowindow, (v) => {
           :key="i"
           :options="{ position: location }"
         >
-          <InfoWindow v-model="infowindow">
-            <div id="content">{{ location.period }} h</div>
-          </InfoWindow>
-        </Marker>
-        <!--CustomMarker
-          v-for="(location, i) in locations"
-          :key="i"
-          :options="{ position: location, anchorPoint: 'BOTTOM_CENTER' }">
-          <div style="text-align: center">
-            <div style="font-size: 1.125rem">{{ location.period }} h</div>
-            <img src="../../../dist/ziel.png"   width="50" height="50" style="margin-top: 8px" />
+        <!--InfoWindow :options="{ position: location, content: 'Hello World!' }" /-->
+        <InfoWindow 
+          :options="{ position: location }"
+        >
+          <div id="content">
+              <div id="siteNotice">
+              </div>
+              <h1 id="firstHeading" class="firstHeading">{{ location.country }} ({{ location.period }}h)</h1>
+              <div id="bodyContent">
+                <p>{{ location.address }}</p>
+                <p><b>Latitude</b> {{ location.lat.toFixed(2) }}, <b>Longitude</b> {{ location.lng.toFixed(2) }}</p>
+                <!--p>Attribution: Uluru, <a href="https://en.wikipedia.org/w/index.php?title=Uluru&oldid=297882194">
+                "https://en.wikipedia.org/w/index.php?title=Uluru</a> "</p-->
+              </div>
           </div>
-        </CustomMarker-->
+
+        </InfoWindow>
+        </Marker>
     </MarkerCluster>
   </GoogleMap>
 </template>
