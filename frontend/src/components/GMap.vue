@@ -19,9 +19,9 @@ const flightPath = ref({
 <template>
   <GoogleMap
     :api-key="maps_api_key" 
-    style="width: 100%; height: 100vh;" 
+    style="width: 100%; height: calc(100vh - 48px);" 
     :center="center" 
-    :zoom="zoom">
+    :zoom="zoom" >
     <Polyline :options="flightPath" />
     <MarkerCluster>
         <Marker
@@ -31,7 +31,7 @@ const flightPath = ref({
         >
         <!--InfoWindow :options="{ position: location, content: 'Hello World!' }" /-->
         <InfoWindow 
-          :options="{ position: location }"
+          :options="{ position: location, minWidth: 250}"
         >
           <div id="content">
               <div id="siteNotice">
@@ -48,7 +48,7 @@ const flightPath = ref({
                   style="width: 100%; text-align: left; margin-top: 5px;"
                 >
                   <tr>
-                    <th>Lat, Lng</th>
+                    <th>Lat, Lng </th>
                     <td>{{ location.lat.toFixed(2) }}, {{ location.lng.toFixed(2) }}</td>
                   </tr>
                   <tr>

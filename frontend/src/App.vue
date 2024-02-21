@@ -1,17 +1,12 @@
 <template>
-  <v-layout class="rounded rounded-md">
+  <v-app class="rounded rounded-md">
     <AppBar />
-    <SideBar />
-    <v-main class="d-flex align-center justify-center" style="min-height: 300px;">
-      <GMap :key=polygone />
-      <pre v-if="False" class="mt-4">
-ab: {{ startdate }}
-an: {{ stopdate }}
-{{ travel }}
-{{ polygone }}
-      </pre>
-        </v-main>
-  </v-layout>
+    <!--SideBar /-->
+      <!--v-main class="d-flex align-center justify-center" style="min-height: 300px;"-->
+      <v-main>
+        <GMap :key=polygone />
+      </v-main>
+  </v-app>
 </template>
 
 <script setup>

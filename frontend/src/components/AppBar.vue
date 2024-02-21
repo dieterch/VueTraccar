@@ -1,15 +1,13 @@
 <script setup>
-import { mergeProps } from 'vue';
+import { ref, mergeProps } from 'vue';
 import { startdate, stopdate, travel, travels, 
-    distance, getTravels, getPolygone } from '@/app';
+    distance, getTravels, renderMap, downloadkml } from '@/app';
 
 function setStartDate(params) { 
     startdate.value = params;
-    getPolygone()
 }
 function setStopDate(params) { 
     stopdate.value = params;
-    getPolygone()
 }
 
 async function update_travel(item) {
@@ -18,7 +16,27 @@ async function update_travel(item) {
     travel.value = travels.value[index]
     startdate.value = new Date(travels.value[index].ab);
     stopdate.value = new Date(travels.value[index].an);
-    getPolygone()
+    renderMap()
+
+}
+
+const menuitems = ref(['Export as KML', 'Export as GPX', 'Export as CSV', 'Export as PDF'])
+async function domenu(item) {
+    console.log(item)
+    switch (item) {
+        case 'Export as KML':
+            downloadkml()
+            break;
+        case 'Export as GPX':
+            //downloadgpx()
+            break;
+        case 'Export as CSV':
+            //downloadcsv()
+            break;
+        case 'Export as PDF':
+            //downloadpdf()
+            break;
+    }
 }
 
 getTravels()
@@ -27,10 +45,9 @@ getTravels()
 <template>
     <v-app-bar
         name="menu-bar" 
-        density="standard"
+        density="compact"
         color="grey-darken-3"
-        :elevation="0"
-        flat
+        :elevation="5"
         >
         <template v-slot:prepend>
             <v-menu location="bottom">
@@ -47,10 +64,12 @@ getTravels()
                     </v-tooltip>
                 </template>
                 <v-list density="compact">
-                    <v-list-item>
-                        <v-list-item-title>Item 1</v-list-item-title>
-                        <v-list-item-title>Item 2</v-list-item-title>
-                        <v-list-item-title>Export as KML</v-list-item-title>
+                    <v-list-item
+                        v-for="(item, index) in menuitems"
+                        :key="index"
+                        :value="item"
+                    >
+                        <v-list-item-title @click="domenu(item)">{{ item }}</v-list-item-title>
                     </v-list-item>
                 </v-list>
             </v-menu>
@@ -68,21 +87,50 @@ getTravels()
                 @update:model-value="update_travel"
                 class="mt-5 ml-6 mb-0 pb-0"
             ></v-select>
-        </template>
-        <template v-slot:append>
-            <v-chip variant="flat" color="transparent">
+            <v-chip 
+                variant="flat" 
+                color="transparent"
+                class="ml-2">
                 {{ distance }}
             </v-chip>
             <DateDialog :key="startdate" :datum="startdate" @getDate="setStartDate"/>
             <DateDialog :key="startdate" :datum="stopdate" @getDate="setStopDate"/>
-            <!--v-switch
-                v-model="order"
-                hide-details
-                inset
-                label="Toggle order"
-                true-value="-1"
-                false-value="0"
-            ></v-switch-->
         </template>
+        <template v-slot:append>
+            <v-btn 
+                icon="mdi-reload" 
+                class="ml-2"
+                nosize="small"
+                @click="renderMap"
+            ></v-btn>
+            <!--v-btn icon="mdi-dots-vertical" href="/streamurl.xspf" size="small"></v-btn>
+            <v-menu 
+                location="bottom"
+                >
+                <template v-slot:activator="{ props }">
+                    <v-btn 
+                        icon="mdi-palette-swatch" 
+                        @click="toggleTheme" 
+                        v-bind="props" 
+                        size="small"
+                    ></v-btn>
+                </template>
+                <v-list
+                    density="compact"
+                >
+                        <v-list-item
+                            v-for="[key, value] of Object.entries(theme.themes.value).filter(filterTheme)"
+                            v-bind="props"
+                            :key="key"
+                            :value="key"
+                            :color="isHovering ? 'primary' : 'transparent'"
+                            >
+                            <v-list-item-title
+                                @click="setTheme(key)"
+                            >{{ key }}</v-list-item-title>
+                        </v-list-item>
+                </v-list>
+            </v-menu-->            
+        </template>        
     </v-app-bar>
 </template>

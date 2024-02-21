@@ -1,5 +1,12 @@
 import { ref, shallowRef, computed } from 'vue'
 import { rpost, rget, DECtoDMS, tracdate } from './tools.js'
+import { useLoading } from 'vue-loading-overlay'
+
+const $loading = useLoading({
+    // Optional parameters
+})
+const fullPage = ref(false)
+
 //import axios from 'axios';
 
 //export const host = ref(window.location.host)
@@ -28,7 +35,7 @@ export async function getTravels() {
     travel.value = travels.value[travels.value.length - 1]
     startdate.value = new Date(travel.value.ab);
     stopdate.value = new Date(travel.value.an);
-    getPolygone()
+    renderMap()
     }
 
 export const route = ref({})
@@ -64,7 +71,7 @@ export async function downloadkml() {
 export const polygone = ref([])
 export const center = ref({lat: 0, lng: 0})
 export const zoom = ref(10)
-export const distance = ref('____ km')
+export const distance = ref('') //ref('_______')
 export const locations = ref([])
 // export const bounds = computed(() => {
 //     let lat = polygone.value.map(p => p.lat)
@@ -74,8 +81,12 @@ export const locations = ref([])
 //         ne: {lat: Math.max(...lat), lng: Math.max(...lng)}
 //     }
 // })
-export async function getPolygone() {
+export async function renderMap() {
+    const loader = $loading.show({
+        // Optional parameters
+    })
     const data = await rpost('/plotmaps', traccar_payload())
+    loader.hide()
     console.log('data:', data)
     polygone.value = data['plotdata']
     zoom.value = data['zoom']

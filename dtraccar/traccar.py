@@ -110,7 +110,10 @@ class Traccar:
             r.raise_for_status()
             if hasattr(self, '_route'):
                 del self._route
-            self._route = r.json()
+            # filter out very long distances
+            self._route = [p for p in r.json() if p['attributes']['distance'] < 1000000.0]
+            #self._route = r.json()
+            print(f"route: {len(r.json()) - len(self._route)} Punkte gefiltert.")
         except requests.exceptions.HTTPError as err:
             raise SystemExit(err)
 
@@ -204,7 +207,7 @@ class Traccar:
                     diff = math.sqrt(latdiff**2 + lngdiff**2)
                     if  diff < 0.005:
                         if (stand_periods[i]['period'] > 0 and stand_periods[j]['period'] > 0):
-                            print(f"combine {i}-{j}, distance: {diff:.4f}")
+                            #print(f"combine {i}-{j}, distance: {diff:.4f}")
                             stand_periods[i]['period'] += stand_periods[j]['period']
                             stand_periods[j]['period'] = 0
         return [d for d in stand_periods if d['period'] > 0]
@@ -213,9 +216,9 @@ class Traccar:
         cfg = self._cfghelp(cfg)
         self.getRouteData(cfg, req)
         bounds = self._bounds(self._route)
+        total_dist, stand_periods = self._analyzeroute(self._route)
         print(f"centerlat: {self._center(bounds)['lat']:.1f}, centerlng: {self._center(bounds)['lng']:.1f}")
         plotdata = [{"lat": d['latitude'], "lng": d['longitude']} for d in self._route]
-        total_dist, stand_periods = self._analyzeroute(self._route)
         #pp(stand_periods[:5])
         return {
             "bounds": bounds,
@@ -273,7 +276,7 @@ def getData(cfg, par):
     T.getRouteData(cfg, par)
     return T._route
 
-def plotmaps(cfg, par):
+def plot(cfg, par):
     return T.plot(cfg, par)
 
 def downloadkml(cfg, par):

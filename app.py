@@ -87,11 +87,11 @@ async def downloadkml():
         return await send_file(full_path, attachment_filename=file_name, as_attachment=True)
 
 @app.route("/plotmaps", methods=['POST'])
-async def plotmaps():
+async def plot():
     await request.get_data()
     if request.method == 'POST':
         req = await request.json
-        return traccar.plotmaps(cfg, req)
+        return traccar.plot(cfg, req)
 
 # deliver the vuetify frontend
 @app.route("/")
