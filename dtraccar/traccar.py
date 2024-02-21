@@ -75,12 +75,12 @@ class Traccar:
             if ev['geofenceId'] == 1:  # 1 Stellplatz Fiecht
                 if ev['type'] == 'geofenceExit':  # abfahrt in den Urlaub
                     intravel = True
-                    ab = arrow.get(ev['serverTime'])
+                    ab = arrow.get(ev['serverTime']).shift(hours=-self._cfg['standperiod'])
                     ab_ev = ev
 
                 if intravel:
                     if ev['type'] == 'geofenceEnter':  # Rückkehr aus dem Urlaub
-                        an = arrow.get(ev['serverTime'])
+                        an = arrow.get(ev['serverTime']).shift(hours=self._cfg['standperiod'])
                         an_ev = ev
                         # print(f"ab: {ab}, an: {an}")
                         # nur wenn die Reise länger als 2 Tage und kürzer als 170 Tage ist ...
@@ -132,13 +132,12 @@ class Traccar:
         distance = R * c
         return distance
 
+    # Berechne die Länger der Reise, die Standzeiten und deren Adressen
     def _analyzeroute(self, route):
         total_dist = 0
         stand_periods = []
         sample_period = []
         stop = {}
-        lat = []
-        lng = []
         start = {}
         standstill = False
         for i in range(len(route)-1):
@@ -156,18 +155,19 @@ class Traccar:
                     standstill = False
                     start = route[i]
                     period = self._timediff(stop, start)
-                    if period > 12*60*60:
+                    if period > (self._cfg['standperiod']*3600.0):
                         plat = mean([p['lat'] for p in sample_period])
                         plng = mean([p['lng'] for p in sample_period])
                         address = self.gmaps.reverse_geocode((plat, plng))
-                        #pp(address)
                         stand_periods.append(
-                             {'period': round(period//360.0/10.0),
-                              'country': address[0]['address_components'][-2]['long_name'], # 'country': 'Austria',
-                              #'fulladdress': address, 
-                              'address': address[0]['formatted_address'], # 'address': 'Fiecht 1, 6235 Reith im Alpbachtal, Austria
-                             'lat': plat,
-                             'lng': plng,})
+                        {   'von': ' '.join(stop['fixTime'].split('T'))[:16],
+                            'bis': ' '.join(start['fixTime'].split('T'))[:16],
+                            'period': round(period//360.0/10.0),
+                            'country': address[0]['address_components'][-2]['long_name'], # 'country': 'Austria',
+                            'address': address[0]['formatted_address'], # 'address': 'Fiecht 1, 6235 Reith im Alpbachtal, Austria
+                            'lat': plat,
+                            'lng': plng
+                        })
                         sample_period = []
                     else:
                         sample_period = []
@@ -204,7 +204,7 @@ class Traccar:
                     diff = math.sqrt(latdiff**2 + lngdiff**2)
                     if  diff < 0.005:
                         if (stand_periods[i]['period'] > 0 and stand_periods[j]['period'] > 0):
-                            print(f"combine {i}-{j}, diff: {diff:.4f}")
+                            print(f"combine {i}-{j}, distance: {diff:.4f}")
                             stand_periods[i]['period'] += stand_periods[j]['period']
                             stand_periods[j]['period'] = 0
         return [d for d in stand_periods if d['period'] > 0]

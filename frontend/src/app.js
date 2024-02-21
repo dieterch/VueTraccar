@@ -1,43 +1,15 @@
 import { ref, shallowRef, computed } from 'vue'
-import axios from 'axios';
+import { rpost, rget, DECtoDMS, tracdate } from './tools.js'
+//import axios from 'axios';
 
-export const host = ref(window.location.host)
-export const protocol = ref(window.location.protocol)    
+//export const host = ref(window.location.host)
+//export const protocol = ref(window.location.protocol)    
 // export const devicesRec = ref([])
 
 export const device = ref({name:'WMB Tk106', id:4})
 export const startdate = ref(new Date('2019-03-01T00:00:00Z'))
 export const stopdate = ref(new Date())
-
-
-export function tracdate(mydate) { return mydate.toISOString().split('T')[0] + 'T00:00:00Z'}
-
-export async function rget(api, headers = { 'Content-type': 'application/json', }) {
-    const endpoint = `${protocol.value}//${host.value}${api}`
-    // console.log('rpost:', endpoint, headers)
-    try {
-        const response = await axios.get( endpoint, 
-            { headers: headers});
-        return response.data
-    } catch (e) {
-        console.log(`${endpoint} \n` + String(e));
-        alert(`${endpoint} \n` + String(e));
-    }
-}
-
-export async function rpost(api, data, headers = { 'Content-type': 'application/json', }) {
-    const endpoint = `${protocol.value}//${host.value}${api}`
-    // console.log('rpost:', endpoint, data, headers)
-    try {
-        const response = await axios.post(
-            endpoint, data, { headers: headers}
-            );
-        return response.data
-    } catch (e) {
-        console.log(`${endpoint} \n` + String(e));
-        alert(`${endpoint} \n` + String(e));
-    }
-}
+export const order = ref(-1)
 
 export function traccar_payload() {
     return {

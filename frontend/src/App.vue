@@ -1,7 +1,7 @@
 <template>
   <v-layout class="rounded rounded-md">
-  <SideBar />
-    <!-- AppBar /-->
+    <AppBar />
+    <SideBar />
     <v-main class="d-flex align-center justify-center" style="min-height: 300px;">
       <GMap :key=polygone />
       <pre v-if="False" class="mt-4">
@@ -16,7 +16,7 @@ an: {{ stopdate }}
 
 <script setup>
 import { ref } from 'vue'
-import { startdate, stopdate, device,  tracdate, 
-  travels, travel, polygone } from '@/app';
+import { tracdate } from '@/tools';
+import { startdate, stopdate, travel, polygone } from '@/app';
 
 </script>

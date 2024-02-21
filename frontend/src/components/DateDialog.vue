@@ -8,9 +8,9 @@
                 v-bind="props" 
                 :text='ldate.toLocaleDateString("de-CA", {year:"numeric", month: "2-digit", day:"2-digit"})'
                 prepend-icon="mdi-calendar-start"
-                color="transparent"
-                block
-                flat
+                color="white"
+                noblock
+                noflat
                 >
             </v-btn>
         </template>

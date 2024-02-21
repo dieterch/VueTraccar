@@ -1,6 +1,7 @@
 <script setup>
 import { ref } from "vue";
 import { GoogleMap, MarkerCluster, Marker, Polyline, InfoWindow } from "vue3-google-map";
+import { GoogleMapsLink } from "@/tools"
 import { polygone, center, zoom, locations } from '@/app';
 import { maps_api_key } from '@/secret';
 
@@ -35,12 +36,40 @@ const flightPath = ref({
           <div id="content">
               <div id="siteNotice">
               </div>
-              <h1 id="firstHeading" class="firstHeading">{{ location.country }} ({{ location.period }}h)</h1>
+              <!--h1 id="firstHeading" class="firstHeading">{{ location.country }} ({{ location.period }}h)</h1-->
+              <h2>{{ location.address.split(',')[0] }}</h2>
               <div id="bodyContent">
-                <p>{{ location.address }}</p>
-                <p><b>Latitude</b> {{ location.lat.toFixed(2) }}, <b>Longitude</b> {{ location.lng.toFixed(2) }}</p>
-                <!--p>Attribution: Uluru, <a href="https://en.wikipedia.org/w/index.php?title=Uluru&oldid=297882194">
-                "https://en.wikipedia.org/w/index.php?title=Uluru</a> "</p-->
+                <h4
+                  v-for="(line, i) in location.address.split(',').slice(1)"
+                >
+                  {{ line }}
+                </h4>
+                <table
+                  style="width: 100%; text-align: left; margin-top: 5px;"
+                >
+                  <tr>
+                    <th>Lat, Lng</th>
+                    <td>{{ location.lat.toFixed(2) }}, {{ location.lng.toFixed(2) }}</td>
+                  </tr>
+                  <tr>
+                    <th>von</th>
+                    <td>{{ location.von }}</td>
+                  </tr>
+                  <tr>
+                    <th>bis</th>
+                    <td>{{ location.bis }}</td>
+                  </tr>
+                  <tr>
+                    <th>Dauer</th>
+                    <td>{{ location.period }}h</td>
+                  </tr>
+                </table>
+                <p> 
+                  <a 
+                  target="_blank" 
+                  :href="GoogleMapsLink(location.lat, location.lng)">
+                  Link to Google Maps</a>
+                </p>
               </div>
           </div>
 
