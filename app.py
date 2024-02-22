@@ -11,8 +11,7 @@ import asyncio
 import json
 import math
 import os
-from pprint import pformat as pf
-from pprint import pprint as pp
+from pprint import pformat as pf, pprint as pp
 from quart import Quart, jsonify, render_template, request, redirect, url_for, send_file, send_from_directory
 from quart_cors import cors
 import subprocess
@@ -83,6 +82,8 @@ async def downloadkml():
     await request.get_data()
     if request.method == 'POST':
         req = await request.json
+        #print("in /download.kml:")
+        #pp(req)
         file_name , full_path = traccar.downloadkml(cfg, req)
         return await send_file(full_path, attachment_filename=file_name, as_attachment=True)
 

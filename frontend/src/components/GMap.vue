@@ -2,7 +2,7 @@
 import { ref } from "vue";
 import { GoogleMap, MarkerCluster, Marker, Polyline, InfoWindow } from "vue3-google-map";
 import { GoogleMapsLink } from "@/tools"
-import { polygone, center, zoom, locations } from '@/app';
+import { polygone, center, zoom, locations, togglemarkers, togglepath, bounds } from '@/app';
 import { maps_api_key } from '@/secret';
 
 // const center = ref({ lat: 47.389207790740315, lng: 11.774475611608988 });
@@ -12,7 +12,15 @@ const flightPath = ref({
     strokeColor: "#FF0000",
     strokeOpacity: 1.0,
     strokeWeight: 2,
+    bounds: bounds
   });
+
+function closeInfoWindows() {
+    console.log('closeInfoWindows()');
+    locations.value.forEach((location) => {
+        location.infowindow = false;
+    });
+}
 
 </script>
 
@@ -21,17 +29,22 @@ const flightPath = ref({
     :api-key="maps_api_key" 
     style="width: 100%; height: calc(100vh - 48px);" 
     :center="center" 
-    :zoom="zoom" >
-    <Polyline :options="flightPath" />
-    <MarkerCluster>
+    :zoom="zoom" 
+    @click="closeInfoWindows">
+    <Polyline v-if="togglepath" :options="flightPath" />
+    <MarkerCluster 
+      v-if="togglemarkers"
+    >
         <Marker
           v-for="(location, i) in locations"
           :key="i"
           :options="{ position: location }"
+          @click="closeInfoWindows"
         >
         <!--InfoWindow :options="{ position: location, content: 'Hello World!' }" /-->
         <InfoWindow 
           :options="{ position: location, minWidth: 250}"
+          v-model="location.infowindow"
         >
           <div id="content">
               <div id="siteNotice">

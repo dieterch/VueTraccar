@@ -3,7 +3,7 @@ import math
 import os
 import requests
 from statistics import mean
-from pprint import pprint as pp
+from pprint import pprint as pp, pformat as pf
 from . import kml
 import tomli as tml
 import googlemaps
@@ -25,16 +25,44 @@ class Traccar:
             cfg = self._cfg
         return cfg
     
-    def _param(self, req):
+    # export function traccar_payload() {
+    # return {
+    #     'name': travel.value.title || 'filename',
+    #     'device': device.value.id,
+    #     'startdate': tracdate(startdate.value),
+    #     'enddate': tracdate(stopdate.value),
+    #     'maxpoints': '2500'
+    # }
+    # }
+    
+    # def _kmlpar(self, req):
+    #     #{'device': 4,
+    #     #'enddate': '2023-09-02T00:00:00Z',
+    #     #'maxpoints': '2500',
+    #     #'name': '2023-08-10 (22 Tage)',
+    #     #'startdate': '2023-08-10T00:00:00Z'}
+    #     if req is None:
+    #         par = { 'name': self._cfg['kmlname'],
+    #                 'maxpoints': self._cfg['maxpoints'],
+    #                 'device': self._cfg['devid'],
+    #                 }
+    #     else:
+    #         par = req
+    #     return par
+    
+    def _traccar_payload(self, req, device=None, startdate = None, enddate=None, tname=None, maxpoints=None):
         if req is None:
-            par = { 'deviceId': self._cfg['devid'],
-                        'from': self._cfg['startdate'], 
-                        'to': arrow.now().format('YYYY-MM-DDTHH:mm:ss') + 'Z'}
-        else:
-            par = { 'deviceId': req['device'],
-                    'from': req['startdate'], 
-                    'to': req['enddate']}
-        return par
+            lstartdate = startdate if startdate is not None else self._cfg['startdate']
+            lenddate = enddate if enddate is not None else arrow.now().format('YYYY-MM-DDTHH:mm:ss') + 'Z'
+            lnamedate = f"{arrow.get(lstartdate).format('YYYY-MM-DD')} ({(arrow.get(lenddate)-arrow.get(lstartdate)).days} Tage)"
+            req = { 
+                'deviceId': device if device is not None else self._cfg['devid'],
+                'from': lstartdate, 
+                'to': lenddate,
+                'name': tname if tname is not None else lnamedate,
+                'maxpoints': maxpoints if maxpoints is not None else self._cfg['maxpoints']
+            }
+        return req
     
     def getDevices(self, cfg=None):
         try:
@@ -54,7 +82,7 @@ class Traccar:
             r = requests.get(
                 cfg['url'] + '/api/reports/events', 
                 auth=(cfg['user'], cfg['password']), 
-                params=self._param(req),
+                params=self._traccar_payload(req),
                 timeout=100.000)
             r.raise_for_status()
             self._events = r.json()
@@ -92,7 +120,7 @@ class Traccar:
                                 'an': an.format('YYYY-MM-DDTHH:mm:ss') + 'Z',
                                 'an_ev': an_ev,
                                 'tage': (an - ab).days,
-                                'device': req['device'] if req is not None else cfg['devid']
+                                'device': req['deviceId'] if req is not None else cfg['devid']
                             })
                         intravel = False
         self._travels = travels
@@ -105,7 +133,7 @@ class Traccar:
                 cfg['url'] + '/api/reports/route', 
                 auth=(cfg['user'], cfg['password']), 
                 headers={"Accept": "application/json; charset=utf-8"},
-                params=self._param(req),
+                params=self._traccar_payload(req),
                 timeout=100.000)
             r.raise_for_status()
             if hasattr(self, '_route'):
@@ -169,7 +197,8 @@ class Traccar:
                             'country': address[0]['address_components'][-2]['long_name'], # 'country': 'Austria',
                             'address': address[0]['formatted_address'], # 'address': 'Fiecht 1, 6235 Reith im Alpbachtal, Austria
                             'lat': plat,
-                            'lng': plng
+                            'lng': plng,
+                            'infowindow': False
                         })
                         sample_period = []
                     else:
@@ -229,26 +258,14 @@ class Traccar:
             "plotdata": plotdata
         }
 
-    def _kmlpar(self, req):
-        #{'device': 4,
-        #'enddate': '2023-09-02T00:00:00Z',
-        #'maxpoints': '2500',
-        #'name': '2023-08-10 (22 Tage)',
-        #'startdate': '2023-08-10T00:00:00Z'}
-        if req is None:
-            par = { 'name': self._cfg['kmlname'],
-                    'maxpoints': self._cfg['maxpoints'],
-                    'device': self._cfg['devid'],
-                    }
-        else:
-            par = req
-        return par
-                
                 
     def kml(self, cfg=None, req=None):
         cfg = self._cfghelp(cfg)
-        req = self._kmlpar(req)
-        print(f"in T.kml: req: {req}")
+        #print("in T.kml vor _traccar_payload:")
+        #pp(req)
+        req = self._traccar_payload(req)
+        #print("in T.kml nach _traccar_payload:")
+        #pp(req)
         self.getRouteData(cfg, req)
         data = self._route
         kmldata = kml.tokml(data)

@@ -1,6 +1,6 @@
 <script setup>
 import { ref, mergeProps } from 'vue';
-import { startdate, stopdate, travel, travels, 
+import { startdate, stopdate, travel, travels, openSettingsDialog,
     distance, getTravels, renderMap, downloadkml } from '@/app';
 
 function setStartDate(params) { 
@@ -18,22 +18,26 @@ async function update_travel(item) {
     stopdate.value = new Date(travels.value[index].an);
     renderMap()
 
+
 }
 
-const menuitems = ref(['Export as KML', 'Export as GPX', 'Export as CSV', 'Export as PDF'])
+
+const menuitems = ref(['Einstellungen', 'Export als KML']) //, 'Export als GPX', 'Export als CSV', 'Export als PDF'])
 async function domenu(item) {
-    console.log(item)
     switch (item) {
-        case 'Export as KML':
+        case 'Einstellungen':
+            openSettingsDialog()
+            break;
+        case 'Export als KML':
             downloadkml()
             break;
-        case 'Export as GPX':
+        case 'Export als GPX':
             //downloadgpx()
             break;
-        case 'Export as CSV':
+        case 'Export als CSV':
             //downloadcsv()
             break;
-        case 'Export as PDF':
+        case 'Export als PDF':
             //downloadpdf()
             break;
     }

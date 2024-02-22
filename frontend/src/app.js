@@ -16,14 +16,14 @@ const fullPage = ref(false)
 export const device = ref({name:'WMB Tk106', id:4})
 export const startdate = ref(new Date('2019-03-01T00:00:00Z'))
 export const stopdate = ref(new Date())
-export const order = ref(-1)
+// export const order = ref(-1)
 
 export function traccar_payload() {
     return {
         'name': travel.value.title || 'filename',
-        'device': device.value.id,
-        'startdate': tracdate(startdate.value),
-        'enddate': tracdate(stopdate.value),
+        'deviceId': device.value.id,
+        'from': tracdate(startdate.value),
+        'to': tracdate(stopdate.value),
         'maxpoints': '2500'
     }
 }
@@ -32,7 +32,8 @@ export const travels = ref([])
 export const travel = ref({})
 export async function getTravels() { 
     travels.value = await rpost('/travels', traccar_payload())
-    travel.value = travels.value[travels.value.length - 1]
+    //travel.value = travels.value[travels.value.length - 1]
+    travel.value = travels.value[3]
     startdate.value = new Date(travel.value.ab);
     stopdate.value = new Date(travel.value.an);
     renderMap()
@@ -73,14 +74,14 @@ export const center = ref({lat: 0, lng: 0})
 export const zoom = ref(10)
 export const distance = ref('') //ref('_______')
 export const locations = ref([])
-// export const bounds = computed(() => {
-//     let lat = polygone.value.map(p => p.lat)
-//     let lng = polygone.value.map(p => p.lng)
-//     return {
-//         sw: {lat: Math.min(...lat), lng: Math.min(...lng)},
-//         ne: {lat: Math.max(...lat), lng: Math.max(...lng)}
-//     }
-// })
+export const bounds = computed(() => {
+    let lat = polygone.value.map(p => p.lat)
+    let lng = polygone.value.map(p => p.lng)
+    return {
+        sw: {lat: Math.min(...lat), lng: Math.min(...lng)},
+        ne: {lat: Math.max(...lat), lng: Math.max(...lng)}
+    }
+})
 export async function renderMap() {
     const loader = $loading.show({
         // Optional parameters
@@ -95,3 +96,16 @@ export async function renderMap() {
     locations.value = data['markers']
     // console.log('polygone:', polygone.value, 'zoom', zoom.value, 'center:', center.value)
 }
+
+// settings
+export const settingsdialog = ref(false)
+export async function openSettingsDialog() {
+    settingsdialog.value = true
+}
+
+export const togglemap = ref(true)
+export const togglemarkers = ref(true)
+export const togglepath = ref(true)
+export const toggletravels = ref(false)
+
+export const toggleroute = ref(false)
