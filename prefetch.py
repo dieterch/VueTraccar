@@ -1,4 +1,13 @@
+import arrow
 from dtraccar import traccar
+import pandas as pd
+import json
+import time
+import os
+from pprint import pprint as pp
+import warnings
+warnings.filterwarnings("ignore")
+
 
 T = traccar.Traccar()
 
@@ -9,20 +18,20 @@ if __name__ == '__main__':
 * Prefetch data from {T.cfg['url']} 
 *************************************************************
 ''')
-    
-    def _prefetch(self):
-        prefetch = {}
-        prefetch['fetchdate'] = arrow.now().format('YYYY-MM-DDTHH:mm:ss') + 'Z'
-        print(f"fetchdate: {prefetch['fetchdate']}")
-        prefetch['devices'] = self.getDevices()
-        print(f"devices: {len(prefetch['devices'])}")
-        prefetch['events'] = self.getEvents()
-        print(f"events: {len(prefetch['events'])}")
-        prefetch['route'] = self.getRouteData()
-        print(f"route: {len(prefetch['route'])}")
-        with open('prefetch.json', mode="w") as fp:
-            json.dump(prefetch, fp, indent=4)
-        print("prefetch.json written.")
-traccar.T._prefetch()
 
+print(f"fetch route data from {T.cfg['url']}")
+t0 = time.time()
+route = T.getRouteData()
+t1 = time.time()
+print(f"route : {len(route)} recs fetched  in {t1-t0:.2f} seconds.")
+#pp(route[:10])
+
+pd.DataFrame(route).to_hdf(T.cfg['prefetch_route'], "data", complevel=6)
+t2 = time.time()
+print(f"{T.cfg['prefetch_route']} written in {t2-t1:.2f} seconds.\n")
+
+t3 = time.time()
+nroute = pd.read_hdf(T.cfg['prefetch_route'], "data").to_dict(orient='records')
+t4 = time.time()
+print(f"route : {len(nroute)} recs loaded from {T.cfg['prefetch_route']} in {t4-t3:.2f} seconds.\n")
 

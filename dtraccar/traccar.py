@@ -28,8 +28,8 @@ class Traccar:
         
     def _traccar_payload(self, req, device=None, startdate = None, enddate=None, tname=None, maxpoints=None):
         if req is None:
-            lstartdate = startdate if startdate is not None else self._cfg['startdate']
-            lenddate = enddate if enddate is not None else arrow.now().format('YYYY-MM-DDTHH:mm:ss') + 'Z'
+            lstartdate = arrow.get(startdate).format('YYYY-MM-DDTHH:mm:ss') + 'Z' if startdate is not None else self._cfg['startdate']
+            lenddate = arrow.get(enddate).format('YYYY-MM-DDTHH:mm:ss') + 'Z' if enddate is not None else arrow.now().format('YYYY-MM-DDTHH:mm:ss') + 'Z'
             lnamedate = f"{arrow.get(lstartdate).format('YYYY-MM-DD')} ({(arrow.get(lenddate)-arrow.get(lstartdate)).days} Tage)"
             req = { 
                 'deviceId': device if device is not None else self._cfg['devid'],
@@ -181,14 +181,14 @@ class Traccar:
         return travels
  
     # Routes
-    def getRouteData(self, cfg=None, req=None):
+    def getRouteData(self, cfg=None, req=None, device=None, startdate = None, enddate=None):
         cfg = self._cfghelp(cfg)
         try:
             r = requests.get(
                 cfg['url'] + '/api/reports/route', 
                 auth=(cfg['user'], cfg['password']), 
                 headers={"Accept": "application/json; charset=utf-8"},
-                params=self._traccar_payload(req),
+                params=self._traccar_payload(req, device = device, startdate = startdate, enddate = enddate),
                 timeout=100.000)
             r.raise_for_status()
             # filter out very long distances
