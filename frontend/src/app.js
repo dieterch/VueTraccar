@@ -32,10 +32,17 @@ export const travels = ref([])
 export const travel = ref({})
 export async function getTravels() { 
     travels.value = await rpost('/travels', traccar_payload())
+    travels.value.forEach(t => {
+        //console.log('t:', t)
+        if ('newtitle' in t) {
+            t.oldtitle = t.title
+            t.title = t.newtitle
+        }
+    })
     //travel.value = travels.value[travels.value.length - 1]
     travel.value = travels.value[3]
-    startdate.value = new Date(travel.value.ab);
-    stopdate.value = new Date(travel.value.an);
+    startdate.value = new Date(travel.value.from.datetime);
+    stopdate.value = new Date(travel.value.to.datetime);
     renderMap()
     }
 
@@ -74,14 +81,14 @@ export const center = ref({lat: 0, lng: 0})
 export const zoom = ref(10)
 export const distance = ref('') //ref('_______')
 export const locations = ref([])
-export const bounds = computed(() => {
-    let lat = polygone.value.map(p => p.lat)
-    let lng = polygone.value.map(p => p.lng)
-    return {
-        sw: {lat: Math.min(...lat), lng: Math.min(...lng)},
-        ne: {lat: Math.max(...lat), lng: Math.max(...lng)}
-    }
-})
+// export const bounds = computed(() => {
+//     let lat = polygone.value.map(p => p.lat)
+//     let lng = polygone.value.map(p => p.lng)
+//     return {
+//         sw: {lat: Math.min(...lat), lng: Math.min(...lng)},
+//         ne: {lat: Math.max(...lat), lng: Math.max(...lng)}
+//     }
+// })
 export async function renderMap() {
     const loader = $loading.show({
         // Optional parameters

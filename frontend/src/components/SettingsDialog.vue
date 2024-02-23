@@ -55,9 +55,6 @@ toggleroute, getRoute } from '@/app';
                                 label="Pfad"
                             ></v-switch>
                         </v-col>
-                        <v-spacer/>
-                    </v-row>
-                    <v-row>
                         <v-col cols="auto">
                             <v-switch
                                 v-model="toggletravels"
@@ -77,16 +74,6 @@ toggleroute, getRoute } from '@/app';
                                 @click="getRoute()"
                             ></v-switch>
                         </v-col>
-                        <v-col cols="auto">
-                            <v-switch
-                                v-model="togglepath"
-                                hide-details
-                                color="orange"
-                                density="compact"
-                                label="Path"
-                            ></v-switch>
-                        </v-col>
-                        <v-spacer/>
                     </v-row>
                 </v-container>
           </v-card-text>

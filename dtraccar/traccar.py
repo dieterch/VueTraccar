@@ -1,11 +1,12 @@
 import arrow
+import json
 import math
 import os
 import requests
 from statistics import mean
 from pprint import pprint as pp, pformat as pf
 from . import kml
-import tomli as tml
+import tomli as tml, tomli_w as tmlw
 import googlemaps
 
 ############################## Class Interface ##############################
@@ -24,32 +25,7 @@ class Traccar:
         if cfg is None:
             cfg = self._cfg
         return cfg
-    
-    # export function traccar_payload() {
-    # return {
-    #     'name': travel.value.title || 'filename',
-    #     'device': device.value.id,
-    #     'startdate': tracdate(startdate.value),
-    #     'enddate': tracdate(stopdate.value),
-    #     'maxpoints': '2500'
-    # }
-    # }
-    
-    # def _kmlpar(self, req):
-    #     #{'device': 4,
-    #     #'enddate': '2023-09-02T00:00:00Z',
-    #     #'maxpoints': '2500',
-    #     #'name': '2023-08-10 (22 Tage)',
-    #     #'startdate': '2023-08-10T00:00:00Z'}
-    #     if req is None:
-    #         par = { 'name': self._cfg['kmlname'],
-    #                 'maxpoints': self._cfg['maxpoints'],
-    #                 'device': self._cfg['devid'],
-    #                 }
-    #     else:
-    #         par = req
-    #     return par
-    
+        
     def _traccar_payload(self, req, device=None, startdate = None, enddate=None, tname=None, maxpoints=None):
         if req is None:
             lstartdate = startdate if startdate is not None else self._cfg['startdate']
@@ -63,7 +39,7 @@ class Traccar:
                 'maxpoints': maxpoints if maxpoints is not None else self._cfg['maxpoints']
             }
         return req
-    
+            
     def getDevices(self, cfg=None):
         try:
             cfg = self._cfghelp(cfg)
@@ -71,7 +47,7 @@ class Traccar:
             cfg['user'], cfg['password']),
             timeout=100.000)
             r.raise_for_status()
-            self._devices = r.json()
+            return r.json()
         except requests.exceptions.HTTPError as err:
             raise SystemExit(err)
 
@@ -85,45 +61,124 @@ class Traccar:
                 params=self._traccar_payload(req),
                 timeout=100.000)
             r.raise_for_status()
-            self._events = r.json()
+            return r.json()
         except requests.exceptions.HTTPError as err:
             raise SystemExit(err) 
+
+
+    # Positions
+    def getPosition(self, cfg=None, id=None):
+        try:
+            cfg = self._cfghelp(cfg)
+            r = requests.get(
+                cfg['url'] + '/api/positions', 
+                auth=(cfg['user'], cfg['password']), 
+                headers={"Accept": "application/json; charset=utf-8"},
+                params={'id': id },
+                timeout=100.000)
+            r.raise_for_status()
+            return r.json()
+        except requests.exceptions.HTTPError as err:
+            raise SystemExit(err) 
+        
+    # # Store Travels in travels.toml
+    # def _storeTravels(self, tt):
+    #     with open(self._cfg['travelsfile'], mode="wb") as fp:
+    #         tmlw.dump({'travels': tt}, fp)
+
+    # def _loadTravels(self):
+    #     try:
+    #         with open(self._cfg['travelsfile'], mode="rb") as fp:
+    #             tt = tml.load(fp)
+    #         return tt['travels']
+    #     except FileNotFoundError:
+    #         raise FileNotFoundError
 
     # Travels
     def getTravels(self, cfg=None, req=None):
         cfg = self._cfghelp(cfg)
-        if not hasattr(self, '_events'):
-            self.getEvents(cfg, req)
-        dres = [rec for rec in self._events if (
-            rec['type'] == "geofenceEnter" or rec['type'] == "geofenceExit")]  # auf geofece events filtern
+        _events = self.getEvents(cfg, req)
+            
+        # filter events for geofence #1 Stellplatz Fiecht Enter und Exit Events
+        dres = [rec for rec in _events if (
+            (rec['type'] == "geofenceEnter" or rec['type'] == "geofenceExit") and rec['geofenceId'] == 1)]  # auf geofece events filtern
         travels = []
         
+        # state intravel
         intravel = False
-        for ev in dres:
-            if ev['geofenceId'] == 1:  # 1 Stellplatz Fiecht
-                if ev['type'] == 'geofenceExit':  # abfahrt in den Urlaub
-                    intravel = True
-                    ab = arrow.get(ev['serverTime']).shift(hours=-self._cfg['standperiod'])
-                    ab_ev = ev
+        # loop over events
+        for i, ev in enumerate(dres):
+            if ev['type'] == 'geofenceExit':  # Go for a trip
+                # check if multiple Events happen within cfg['event_min_gap'] seconds
+                if i > 1:
+                    #print(f"check event {i} from {len(dres)-1}")
+                    if (arrow.get(ev['serverTime']) - arrow.get(dres[i-1]['serverTime'])).seconds < self._cfg['event_min_gap']:
+                            print(f"getTravels: skip event {i}({ev['type']}) at {dres[i]['serverTime']} because it is too close to {dres[i-1]['serverTime']}")
+                            continue # skip this event
+                # exit for a trip detected, store in lfrom
+                lfrom = arrow.get(ev['serverTime'])
+                lfrom_ev = ev # for debug
+                intravel = True
 
-                if intravel:
-                    if ev['type'] == 'geofenceEnter':  # Rückkehr aus dem Urlaub
-                        an = arrow.get(ev['serverTime']).shift(hours=self._cfg['standperiod'])
-                        an_ev = ev
-                        # print(f"ab: {ab}, an: {an}")
-                        # nur wenn die Reise länger als 2 Tage und kürzer als 170 Tage ist ...
-                        if ((an-ab).days > 2) & ((an-ab).days < 170):
-                            travels.append({
-                                'title': f"{ab.format('YYYY-MM-DD')} ({(an-ab).days} Tage)",
-                                'ab': ab.format('YYYY-MM-DDTHH:mm:ss') + 'Z',
-                                'ab_ev': ab_ev,
-                                'an': an.format('YYYY-MM-DDTHH:mm:ss') + 'Z',
-                                'an_ev': an_ev,
-                                'tage': (an - ab).days,
-                                'device': req['deviceId'] if req is not None else cfg['devid']
-                            })
-                        intravel = False
-        self._travels = travels
+            if intravel:
+                if ev['type'] == 'geofenceEnter':  # come back from a trip
+                    # check if multiple Events happen within cfg['event_min_gap'] seconds
+                    if i < len(dres)-1:
+                        if (arrow.get(dres[i+1]['serverTime']) - arrow.get(ev['serverTime'])).seconds < self._cfg['event_min_gap']:
+                            print(f"getTravels: skip event {i}({ev['type']}) at {dres[i]['serverTime']} because it is too close to {dres[i+1]['serverTime']}")
+                            continue # skip this event
+                        
+                    # enter, return from a trip detected, store in lto
+                    lto = arrow.get(ev['serverTime'])
+                    lto_ev = ev # for debug
+                    
+                    # store travel if it is longer than cfg['mindays'] and shorter than cfg['maxdays']
+                    if ((lto - lfrom).days > self._cfg['mindays']) & ((lto - lfrom).days < self._cfg['maxdays']):
+                        travels.append({
+                            'title': f"{lfrom.format('YYYY-MM-DD')} ({(lto - lfrom).days} Tage)",
+                            'from': { 
+                                'datetime': lfrom.format('YYYY-MM-DDTHH:mm:ss') + 'Z',
+                                #'event': lfrom_ev, # for debug
+                                #'position': self.getPosition(cfg, lfrom_ev['positionId'])
+                            },
+                            'to': {
+                                'datetime': lto.format('YYYY-MM-DDTHH:mm:ss') + 'Z',
+                                #'event': lto_ev, # for debug
+                                #'position': self.getPosition(cfg, lto_ev['positionId']),
+                                #'debug_events': [  # for debug
+                                #    e for e in dres \
+                                #    if ((arrow.get(e['serverTime']) > lfrom.shift(days=-2)) and 
+                                #        (arrow.get(e['serverTime']) < lto.shift(days=2)) and 
+                                #        (e['geofenceId'] == 1))
+                                #]
+                            },
+                            'tage': (lto - lfrom).days, # duration in days
+                            'device': req['deviceId'] if req is not None else cfg['devid']
+                        })
+                    intravel = False # back from travel
+
+        # try:
+        #     ftravels = self._loadTravels()
+        #     for t in ftravels:
+        #         if 'newtitle' in t:
+        #             pp(t)
+        #             for nt in travels:
+        #                 if nt['title'] == t['title']:
+        #                     nt['newtitle'] = t['newtitle']
+        #                     break
+        # except FileNotFoundError:
+        #     print(f"{self._cfg['travelsfile']} not found.")
+        #     pass
+        
+        # # filter out debug parts
+        # ltravels = travels
+        # for t in ltravels:
+        #     t['from']= { 'datetime' : t['from']['datetime'] }
+        #     t['to']= { 'datetime' : t['to']['datetime'] }
+
+
+        # self._storeTravels(ltravels)
+        return travels
  
     # Routes
     def getRouteData(self, cfg=None, req=None):
@@ -136,12 +191,10 @@ class Traccar:
                 params=self._traccar_payload(req),
                 timeout=100.000)
             r.raise_for_status()
-            if hasattr(self, '_route'):
-                del self._route
             # filter out very long distances
-            self._route = [p for p in r.json() if p['attributes']['distance'] < 1000000.0]
-            #self._route = r.json()
-            print(f"route: {len(r.json()) - len(self._route)} Punkte gefiltert.")
+            route = [p for p in r.json() if p['attributes']['distance'] < 1000000.0]
+            print(f"route: {len(r.json()) - len(route)} Punkte gefiltert.")
+            return route
         except requests.exceptions.HTTPError as err:
             raise SystemExit(err)
 
@@ -205,26 +258,29 @@ class Traccar:
                         sample_period = []
         return total_dist, stand_periods
 
-    def _bounds(self, route):
-        return {
-            'south': min([d['latitude'] for d in route]),
-            'north': max([d['latitude'] for d in route]),
-            'east': min([d['longitude'] for d in route]),
-            'west': max([d['longitude'] for d in route])
+    def _center_and_bounds(self, route):
+        south = min([d['latitude'] for d in route])
+        north = max([d['latitude'] for d in route])
+        east = min([d['longitude'] for d in route])
+        west = max([d['longitude'] for d in route])
+        center = {
+            'lat': (south + north) / 2,
+            'lng': (east + west) / 2
         }
-
-    def _center(self, bounds):    
-        return {
-            'lat': (bounds['south'] + bounds['north']) / 2,
-            'lng': (bounds['east'] + bounds['west']) / 2
+        bounds = {
+            'nw': {'latitude': north, 'longitude': west},
+            'ne': {'latitude': north, 'longitude': east},
+            'se': {'latitude': south, 'longitude': east},
+            'sw': {'latitude': south, 'longitude': west}
         }
+        return center, bounds
 
     def _zoom(self,bounds):
-        deltalat = bounds['north'] - bounds['south']
-        deltalng = bounds['west'] - bounds['east']
-        ext = math.sqrt(deltalat**2 + deltalng**2)
-        zoom = round(0.0347*(ext**2)-0.855*ext+10.838)
-        print(f"dimension: {ext:.1f}, zoom: {zoom}")
+        extx = self._distance(bounds['nw'], bounds['ne'])
+        exty = self._distance(bounds['nw'], bounds['sw'])
+        ext = math.sqrt(extx**2 + exty**2)
+        zoom = 46.527*((ext+150)**-0.288)
+        print(f"dimension: {ext:.1f},(x:{extx:.1f} y:{exty:.1f}) zoom: {zoom}")
         return zoom
 
     def _clean_stand_periods(self, stand_periods):
@@ -243,18 +299,20 @@ class Traccar:
 
     def plot(self, cfg=None, req=None):
         cfg = self._cfghelp(cfg)
-        self.getRouteData(cfg, req)
-        bounds = self._bounds(self._route)
-        total_dist, stand_periods = self._analyzeroute(self._route)
-        print(f"centerlat: {self._center(bounds)['lat']:.1f}, centerlng: {self._center(bounds)['lng']:.1f}")
-        plotdata = [{"lat": d['latitude'], "lng": d['longitude']} for d in self._route]
+        _route = self.getRouteData(cfg, req)
+        center, bounds = self._center_and_bounds(_route)
+        total_dist, stand_periods = self._analyzeroute(_route)
+        markers = self._clean_stand_periods(stand_periods)
+        print(f"centerlat: {center['lat']:.1f}, centerlng: {center['lng']:.1f}")
+        plotdata = [{"lat": d['latitude'], "lng": d['longitude']} for d in _route]
+        #pp(markers)        
         #pp(stand_periods[:5])
         return {
             "bounds": bounds,
-            "center": self._center(bounds),
+            "center": center,
             "zoom": self._zoom(bounds),
             "distance": f"{total_dist:.0f} km",
-            "markers": self._clean_stand_periods(stand_periods),
+            "markers": markers,
             "plotdata": plotdata
         }
 
@@ -266,8 +324,7 @@ class Traccar:
         req = self._traccar_payload(req)
         #print("in T.kml nach _traccar_payload:")
         #pp(req)
-        self.getRouteData(cfg, req)
-        data = self._route
+        data = self.getRouteData(cfg, req)
         kmldata = kml.tokml(data)
         file_name = req['name'] + '.kml' if req is not None else 'route.kml'
         file_path = os.getcwd() + "/dist/static/"
@@ -278,20 +335,16 @@ class Traccar:
 ############################# maintain functional interface #################
 T = Traccar()
 def getDevices(cfg):
-    T.getDevices(cfg)
-    return T._devices
+    return T.getDevices(cfg)
 
 def getEvents(cfg, par):
-    T.getEvents(cfg, par)
-    return T._events
+    return T.getEvents(cfg, par)
 
 def getTravels(cfg, par):
-    T.getTravels(cfg, par)
-    return T._travels
+    return T.getTravels(cfg, par)
 
 def getData(cfg, par):
-    T.getRouteData(cfg, par)
-    return T._route
+    return T.getRouteData(cfg, par)
 
 def plot(cfg, par):
     return T.plot(cfg, par)

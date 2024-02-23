@@ -2,7 +2,7 @@
 import { ref } from "vue";
 import { GoogleMap, MarkerCluster, Marker, Polyline, InfoWindow } from "vue3-google-map";
 import { GoogleMapsLink } from "@/tools"
-import { polygone, center, zoom, locations, togglemarkers, togglepath, bounds } from '@/app';
+import { polygone, center, zoom, locations, togglemarkers, togglepath  } from '@/app';
 import { maps_api_key } from '@/secret';
 
 // const center = ref({ lat: 47.389207790740315, lng: 11.774475611608988 });
@@ -11,8 +11,7 @@ const flightPath = ref({
     geodesic: true,
     strokeColor: "#FF0000",
     strokeOpacity: 1.0,
-    strokeWeight: 2,
-    bounds: bounds
+    strokeWeight: 2
   });
 
 function closeInfoWindows() {

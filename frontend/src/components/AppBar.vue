@@ -14,18 +14,18 @@ async function update_travel(item) {
     var index = travels.value.map(function(e) { return e.title; }).indexOf(item);
     console.log(item, index, travels.value[index]);
     travel.value = travels.value[index]
-    startdate.value = new Date(travels.value[index].ab);
-    stopdate.value = new Date(travels.value[index].an);
+    startdate.value = new Date(travels.value[index].from.datetime);
+    stopdate.value = new Date(travels.value[index].to.datetime);
     renderMap()
 
 
 }
 
 
-const menuitems = ref(['Einstellungen', 'Export als KML']) //, 'Export als GPX', 'Export als CSV', 'Export als PDF'])
+const menuitems = ref(['Debug', 'Export als KML']) //, 'Export als GPX', 'Export als CSV', 'Export als PDF'])
 async function domenu(item) {
     switch (item) {
-        case 'Einstellungen':
+        case 'Debug':
             openSettingsDialog()
             break;
         case 'Export als KML':
