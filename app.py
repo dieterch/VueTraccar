@@ -17,16 +17,14 @@ from quart_cors import cors
 import subprocess
 import time
 
-try:
-    import tomllib as toml
-except ImportError as e:
-    print('tomllib not found. using "tomli" instead.')
-    import tomli as toml
+# try:
+#     import tomllib as toml
+# except ImportError as e:
+#     print('tomllib not found. using "tomli" instead.')
+#     import tomli as toml
 
-from dtraccar import kml, traccar
-
-with open("config.toml", mode="rb") as fp:
-    cfg = toml.load(fp)
+import dtraccar
+T = dtraccar.Traccar()
 
 # https://stackoverflow.com/questions/37039835/how-to-change-jinja2-delimiters
 class CustomQuart(Quart):
@@ -50,15 +48,19 @@ async def add_header(response):
 
 @app.route("/devices")
 async def devices():
-    return traccar.getDevices(cfg)
+    return T.getDevices()
 
 # route to call for traccar data
+@app.route("/prefetchroute")
+async def prefechtroute():
+    return T.prefetchRouteData()
+
 @app.route("/route", methods=['POST'])
 async def route():
     await request.get_data()
     if request.method == 'POST':
         req = await request.json
-        return traccar.getData(cfg, req)
+        return T.getData(req=req)
 
 # route to call for traccar data
 @app.route("/events", methods=['POST'])
@@ -66,7 +68,7 @@ async def events():
     await request.get_data()
     if request.method == 'POST':
         req = await request.json
-        return traccar.getEvents(cfg, req)
+        return T.getEvents(req=req)
 
 # route to call for traccar data
 @app.route("/travels", methods=['POST'])
@@ -74,7 +76,7 @@ async def travels():
     await request.get_data()
     if request.method == 'POST':
         req = await request.json
-        return traccar.getTravels(cfg, req)
+        return T.getTravels(req=req)
 
 # route to download kml file
 @app.route("/download.kml", methods=['POST'])
@@ -84,7 +86,7 @@ async def downloadkml():
         req = await request.json
         #print("in /download.kml:")
         #pp(req)
-        file_name , full_path = traccar.downloadkml(cfg, req)
+        file_name , full_path = T.kml(req=req)
         return await send_file(full_path, attachment_filename=file_name, as_attachment=True)
 
 @app.route("/plotmaps", methods=['POST'])
@@ -92,7 +94,7 @@ async def plot():
     await request.get_data()
     if request.method == 'POST':
         req = await request.json
-        return traccar.plot(cfg, req)
+        return T.plot(req=req)
 
 # deliver the vuetify frontend
 @app.route("/")
@@ -115,4 +117,5 @@ if __name__ == '__main__':
             #asyncio.run(app.run_task(host='0.0.0.0', port=5999, debug=True))
     except Exception as e:
         print(str(e))
-    print('Bye!')
+    finally:
+        print('Bye!')

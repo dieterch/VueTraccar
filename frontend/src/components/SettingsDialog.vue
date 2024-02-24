@@ -17,7 +17,7 @@ toggleroute, getRoute } from '@/app';
         width="auto"
       >
         <v-card 
-            title="Einstellungen" 
+            title="Debug" 
             class="bg-surface"
             style="opacity: 0.7;"
         >
