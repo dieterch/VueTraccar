@@ -21,6 +21,7 @@ class Traccar:
         with open(cfgfile, mode="rb") as fp:
             self._cfg = tml.load(fp)
         self.gmaps = googlemaps.Client(key=self._cfg['mapsapikey'])
+        self._newprefetch = False
             
     @property
     def cfg(self):
@@ -29,9 +30,9 @@ class Traccar:
 # -------------------
 # api calls & caching
 # -------------------            
-    def getDevices(self, cfg=None):
+    def getDevices(self):
         try:
-            cfg = self._cfghelp(cfg)
+            cfg = self._cfg
             r = requests.get(cfg['url'] + '/api/devices', auth=(
             cfg['user'], cfg['password']),
             timeout=100.000)
@@ -40,14 +41,31 @@ class Traccar:
         except requests.exceptions.HTTPError as err:
             raise SystemExit(err)
 
+    # def _traccar_payload(self, req, device=None, startdate = None, enddate=None, tname=None, maxpoints=None):
+    #     if req is None:
+    #         lstartdate = self._formatdate(startdate) if startdate is not None else self._cfg['startdate']
+    #         lenddate = self._formatdate(enddate) if enddate is not None else self._formatdate(arrow.now())
+    #         lnamedate = f"{arrow.get(lstartdate).format('YYYY-MM-DD')} ({(arrow.get(lenddate)-arrow.get(lstartdate)).days} Tage)"
+    #         req = { 
+    #             'deviceId': device if device is not None else self._cfg['devid'],
+    #             'from': lstartdate, 
+    #             'to': lenddate,
+    #             'name': tname if tname is not None else lnamedate,
+    #             'maxpoints': maxpoints if maxpoints is not None else self._cfg['maxpoints']
+    #         }
+    #     return req
+    #args = self._par(['deviceId', 'from', 'to'], **kwargs)
+
     # Events
-    def getEvents(self, cfg= None, req=None):
+    def getEvents(self, **kwargs):
         try:
-            cfg = self._cfghelp(cfg)
+            parameters = self._par(['deviceId', 'from', 'to'], **kwargs)
+            print(f"getEvent: {parameters}")
+            cfg = self._cfg
             r = requests.get(
                 cfg['url'] + '/api/reports/events', 
                 auth=(cfg['user'], cfg['password']), 
-                params=self._traccar_payload(req),
+                params=parameters,
                 timeout=100.000)
             r.raise_for_status()
             return r.json()
@@ -69,55 +87,84 @@ class Traccar:
         except requests.exceptions.HTTPError as err:
             raise SystemExit(err) 
 
+    def _prefetch_filename(self, deviceId):
+        return f"{self._cfg['prefetch_route']}_{deviceId}.hdf"
+
     # prefetch route data
-    def prefetchRouteData(self):
+    def prefetchRouteData(self, deviceId=4):
         print(f"fetch route data from {self._cfg['url']}")
         t0 = time.time()
         if hasattr(self, '_route'):
             del self._route
-        self._route = self._getRouteData()
+            
+        # fetch all data since startdate, need a dict because 'from' and 'to' are reserved words
+        args= dict()
+        args['deviceId'] = deviceId
+        args['from'] = self._formatdate(self._cfg['startdate']); 
+        args['to'] = self._formatdate(arrow.now())
+        
+        self._route = self._getRouteData(**args)
         pd.DataFrame(self._route).to_hdf(self._cfg['prefetch_route'], "data", complevel=6)
         t1 = time.time()
         print(f"route : {len(self._route)} recs fetched & stored in {t1-t0:.2f} seconds.")
         return {"records" : len(self._route), "time": t1-t0}
-    
-    def getRouteData(self, cfg=None, req=None, device=None, startdate = None, enddate=None):
-        cfg = self._cfghelp(cfg)
-        if not hasattr(self, '_route'):
-            # load route data from caching file, if prefetch_route file does not exist
-            # call prefectchRouteData
+        
+    def getRouteData(self, **kwargs):
+        cfg = self._cfg
+        if hasattr(self, '_route'):
+            if not os.path.isfile(cfg['prefetch_route']):
+                print(f"prefetching  ... deleting 'self._route'")
+                del self._route            
+        if not hasattr(self, '_route'): # no else here, as the route may be deleted in the if clause
+            # handle caching of route data
             if not os.path.isfile(cfg['prefetch_route']):
                 print(f"prefetching file {cfg['prefetch_route']} ...")
-                self.prefetchRouteData()
-            self._route = pd.read_hdf(self._cfg['prefetch_route'], "data").to_dict(orient='records')
+                self.prefetchRouteData() # self._route is created here as a side effect
+            else:
+                self._route = pd.read_hdf(self._cfg['prefetch_route'], "data").to_dict(orient='records')
+        # now we have a valid self._route 
         lastid = self._route[-1]['id']; lastdate = self._formatdate(self._route[-1]['fixTime'])
-        _newroute = self._getRouteData(cfg=None, req=None, device=None, startdate = lastdate, enddate=None)
+
+        # fetch only missing data, need a dict because 'from' and 'to' are reserved words
+        args= dict()
+        args['deviceId'] = kwargs['deviceId'] if 'deviceId' in kwargs else cfg['devid']
+        args['from'] = lastdate; 
+        args['to'] = self._formatdate(arrow.now()) 
+        _newroute = self._getRouteData(**args)
+        
         # filter out the records that are already in self._route
         newroute = [r for r in _newroute if r['id'] > lastid]
         # add the new records to the self._route
         self._route.extend(newroute)
         # filter route for the requested time period
-        req = self._traccar_payload(req, device = device, startdate = startdate, enddate = enddate)
-        route = [p for p in self._route if p['fixTime'] > req['from'] and p['fixTime'] < req['to']]
+        route = [p for p in self._route if p['fixTime'] > kwargs['from'] and p['fixTime'] < kwargs['to']]
         return route
  
+     # def _par(self, parameters, **kwargs):
+    #     return {a: kwargs[a] for a in kwargs if a in parameters}
+
+    # # Events
+    # def getEvents(self, **kwargs):
+    #     try:
+    #         parameters = self._par(['deviceId', 'from', 'to'], **kwargs)
+
     # Routes
-    def _getRouteData(self, cfg=None, req=None, device=None, startdate = None, enddate=None):
+    def _getRouteData(self, **kwargs):
         t0 = time.time()
-        cfg = self._cfghelp(cfg)
-        _par = self._traccar_payload(req, device = device, startdate = startdate, enddate = enddate)
+        cfg = self._cfg
+        parameters = self._par(['deviceId', 'from', 'to'], **kwargs)
         try:
             r = requests.get(
                 cfg['url'] + '/api/reports/route', 
                 auth=(cfg['user'], cfg['password']), 
                 headers={"Accept": "application/json; charset=utf-8"},
-                params=_par,
+                params=parameters,
                 timeout=100.000)
             r.raise_for_status()
             # filter out very long distances
             route = [p for p in r.json() if p['attributes']['distance'] < 1000000.0]
             t1 = time.time()
-            print(f"load route, device: {_par['deviceId']} from: {_par['from']}, to: {_par['to']}, {len(r.json()) - len(route)} records filtered. {t1-t0:.2f} seconds.")
+            print(f"load route, device: {kwargs['deviceId']} from: {kwargs['from']}, to: {kwargs['to']}, {len(r.json()) - len(route)} records filtered. {t1-t0:.2f} seconds.")
             return route
         except requests.exceptions.HTTPError as err:
             raise SystemExit(err)
@@ -129,9 +176,9 @@ class Traccar:
 # -----------------
 
     # Travels
-    def getTravels(self, cfg=None, req=None):
-        cfg = self._cfghelp(cfg)
-        _events = self.getEvents(cfg, req)
+    def getTravels(self, **kwargs):
+        cfg = self._cfg
+        _events = self.getEvents(**kwargs)
             
         # filter events for geofence #1 Stellplatz Fiecht Enter und Exit Events
         dres = [rec for rec in _events if (
@@ -187,58 +234,16 @@ class Traccar:
                                 #]
                             },
                             'tage': (lto - lfrom).days, # duration in days
-                            'device': req['deviceId'] if req is not None else cfg['devid']
+                            'device': kwargs['deviceId'] if 'deviceId' in kwargs else cfg['devid']
                         })
                     intravel = False # back from travel
 
         return travels
  
-    # Berechne die Länger der Reise, die Standzeiten und deren Adressen
-    def _analyzeroute(self, route):
-        total_dist = 0
-        stand_periods = []
-        sample_period = []
-        stop = {}
-        start = {}
-        standstill = False
-        for i in range(len(route)-1):
-            d = self._distance(route[i],route[i+1])
-            total_dist += d
-            if d < 0.1:
-                if not standstill:
-                    standstill = True
-                    stop = route[i]
-                sample_period.append(
-                    {'lat': route[i]['latitude'],
-                     'lng': route[i]['longitude']})
-            else:
-                if standstill:
-                    standstill = False
-                    start = route[i]
-                    period = self._timediff(stop, start)
-                    if period > (self._cfg['standperiod']*3600.0):
-                        plat = mean([p['lat'] for p in sample_period])
-                        plng = mean([p['lng'] for p in sample_period])
-                        address = self.gmaps.reverse_geocode((plat, plng))
-                        stand_periods.append(
-                        {   'von': ' '.join(stop['fixTime'].split('T'))[:16],
-                            'bis': ' '.join(start['fixTime'].split('T'))[:16],
-                            'period': round(period//360.0/10.0),
-                            'country': address[0]['address_components'][-2]['long_name'], # 'country': 'Austria',
-                            'address': address[0]['formatted_address'], # 'address': 'Fiecht 1, 6235 Reith im Alpbachtal, Austria
-                            'lat': plat,
-                            'lng': plng,
-                            'infowindow': False
-                        })
-                        sample_period = []
-                    else:
-                        sample_period = []
-        return total_dist, stand_periods
-
     # return data to plot the route
-    def plot(self, cfg=None, req=None):
-        cfg = self._cfghelp(cfg)
-        _route = self.getRouteData(cfg, req)
+    def plot(self, **kwargs):
+        cfg = self._cfg
+        _route = self.getRouteData(**kwargs)
         center, bounds = self._center_and_bounds(_route)
         total_dist, stand_periods = self._analyzeroute(_route)
         markers = self._clean_stand_periods(stand_periods)
@@ -255,25 +260,24 @@ class Traccar:
             "plotdata": plotdata
         }
 
-                
-    def kml(self, cfg=None, req=None):
-        cfg = self._cfghelp(cfg)
-        #print("in T.kml vor _traccar_payload:")
-        #pp(req)
-        req = self._traccar_payload(req)
-        #print("in T.kml nach _traccar_payload:")
-        #pp(req)
-        data = self.getRouteData(cfg, req)
+    # return data to plot the route              
+    def kml(self, **kwargs):
+        cfg = self._cfg
+        parameters = self._par(['name','maxpoints'], **kwargs)
+        data = self.getRouteData(**kwargs)
         kmldata = dtraccar.tokml(data)
-        file_name = req['name'] + '.kml' if req is not None else 'route.kml'
+        file_name = kwargs['name'] + '.kml' if 'name' in kwargs else 'route.kml'
         file_path = os.getcwd() + "/dist/static/"
         full_path = file_path + file_name
-        dtraccar.writeKML(cfg, req, full_path, kmldata)
+        dtraccar.writeKML(cfg, parameters, full_path, kmldata)
         return file_name, full_path
 
 # ----------------------
 # local helper functions
 # ---------------------- 
+
+    def _par(self, parameters, **kwargs):
+        return {a: kwargs[a] for a in kwargs if a in parameters}
     
     def _cfghelp(self, cfg):
         if cfg is None:
@@ -353,26 +357,48 @@ class Traccar:
         c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
         distance = R * c
         return distance
+    
+    # Berechne die Länger der Reise, die Standzeiten und deren Adressen
+    def _analyzeroute(self, route):
+        total_dist = 0
+        stand_periods = []
+        sample_period = []
+        stop = {}
+        start = {}
+        standstill = False
+        for i in range(len(route)-1):
+            d = self._distance(route[i],route[i+1])
+            total_dist += d
+            if d < 0.1:
+                if not standstill:
+                    standstill = True
+                    stop = route[i]
+                sample_period.append(
+                    {'lat': route[i]['latitude'],
+                     'lng': route[i]['longitude']})
+            else:
+                if standstill:
+                    standstill = False
+                    start = route[i]
+                    period = self._timediff(stop, start)
+                    if period > (self._cfg['standperiod']*3600.0):
+                        plat = mean([p['lat'] for p in sample_period])
+                        plng = mean([p['lng'] for p in sample_period])
+                        address = self.gmaps.reverse_geocode((plat, plng))
+                        stand_periods.append(
+                        {   'von': ' '.join(stop['fixTime'].split('T'))[:16],
+                            'bis': ' '.join(start['fixTime'].split('T'))[:16],
+                            'period': round(period//360.0/10.0),
+                            'country': address[0]['address_components'][-2]['long_name'], # 'country': 'Austria',
+                            'address': address[0]['formatted_address'], # 'address': 'Fiecht 1, 6235 Reith im Alpbachtal, Austria
+                            'lat': plat,
+                            'lng': plng,
+                            'infowindow': False
+                        })
+                        sample_period = []
+                    else:
+                        sample_period = []
+        return total_dist, stand_periods
         
-############################# maintain functional interface #################
-# T = Traccar()
-# def getDevices(cfg):
-#     return T.getDevices(cfg)
-
-# def getEvents(cfg, par):
-#     return T.getEvents(cfg, par)
-
-# def getTravels(cfg, par):
-#     return T.getTravels(cfg, par)
-
-# def getData(cfg, par):
-#     return T.getRouteData(cfg, par)
-
-# def plot(cfg, par):
-#     return T.plot(cfg, par)
-
-# def downloadkml(cfg, par):
-#     return T.kml(cfg, par)
-
 if __name__ == '__main__':
     print('Please do not call this module directly. Use the app.py instead.')

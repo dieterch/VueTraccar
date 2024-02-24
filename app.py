@@ -60,7 +60,7 @@ async def route():
     await request.get_data()
     if request.method == 'POST':
         req = await request.json
-        return T.getData(req=req)
+        return T.getData(**req)
 
 # route to call for traccar data
 @app.route("/events", methods=['POST'])
@@ -68,7 +68,10 @@ async def events():
     await request.get_data()
     if request.method == 'POST':
         req = await request.json
-        return T.getEvents(req=req)
+        return T.getEvents(**req)
+
+def _help(**kwargs):
+    print('req as kwargs:', kwargs)
 
 # route to call for traccar data
 @app.route("/travels", methods=['POST'])
@@ -76,7 +79,7 @@ async def travels():
     await request.get_data()
     if request.method == 'POST':
         req = await request.json
-        return T.getTravels(req=req)
+        return T.getTravels(**req)
 
 # route to download kml file
 @app.route("/download.kml", methods=['POST'])
@@ -84,9 +87,7 @@ async def downloadkml():
     await request.get_data()
     if request.method == 'POST':
         req = await request.json
-        #print("in /download.kml:")
-        #pp(req)
-        file_name , full_path = T.kml(req=req)
+        file_name , full_path = T.kml(**req)
         return await send_file(full_path, attachment_filename=file_name, as_attachment=True)
 
 @app.route("/plotmaps", methods=['POST'])
@@ -94,7 +95,7 @@ async def plot():
     await request.get_data()
     if request.method == 'POST':
         req = await request.json
-        return T.plot(req=req)
+        return T.plot(**req)
 
 # deliver the vuetify frontend
 @app.route("/")

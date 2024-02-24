@@ -114,5 +114,5 @@ export const togglemap = ref(true)
 export const togglemarkers = ref(true)
 export const togglepath = ref(true)
 export const toggletravels = ref(false)
-
 export const toggleroute = ref(false)
+export const toggleEvents = ref(false)
