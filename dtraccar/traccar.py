@@ -4,6 +4,7 @@ import math
 import os
 import time
 import requests
+import itertools
 from statistics import mean
 import pprint
 from pprint import pprint as pp, pformat as pf
@@ -40,21 +41,6 @@ class Traccar:
             return r.json()
         except requests.exceptions.HTTPError as err:
             raise SystemExit(err)
-
-    # def _traccar_payload(self, req, device=None, startdate = None, enddate=None, tname=None, maxpoints=None):
-    #     if req is None:
-    #         lstartdate = self._formatdate(startdate) if startdate is not None else self._cfg['startdate']
-    #         lenddate = self._formatdate(enddate) if enddate is not None else self._formatdate(arrow.now())
-    #         lnamedate = f"{arrow.get(lstartdate).format('YYYY-MM-DD')} ({(arrow.get(lenddate)-arrow.get(lstartdate)).days} Tage)"
-    #         req = { 
-    #             'deviceId': device if device is not None else self._cfg['devid'],
-    #             'from': lstartdate, 
-    #             'to': lenddate,
-    #             'name': tname if tname is not None else lnamedate,
-    #             'maxpoints': maxpoints if maxpoints is not None else self._cfg['maxpoints']
-    #         }
-    #     return req
-    #args = self._par(['deviceId', 'from', 'to'], **kwargs)
 
     # Events
     def getEvents(self, **kwargs):
@@ -140,14 +126,6 @@ class Traccar:
         route = [p for p in self._route if p['fixTime'] > kwargs['from'] and p['fixTime'] < kwargs['to']]
         return route
  
-     # def _par(self, parameters, **kwargs):
-    #     return {a: kwargs[a] for a in kwargs if a in parameters}
-
-    # # Events
-    # def getEvents(self, **kwargs):
-    #     try:
-    #         parameters = self._par(['deviceId', 'from', 'to'], **kwargs)
-
     # Routes
     def _getRouteData(self, **kwargs):
         t0 = time.time()
@@ -287,21 +265,22 @@ class Traccar:
     def _formatdate(self, d):
         return arrow.get(d).format('YYYY-MM-DDTHH:mm:ss') + 'Z'
 
-    def _traccar_payload(self, req, device=None, startdate = None, enddate=None, tname=None, maxpoints=None):
-        if req is None:
-            lstartdate = self._formatdate(startdate) if startdate is not None else self._cfg['startdate']
-            lenddate = self._formatdate(enddate) if enddate is not None else self._formatdate(arrow.now())
-            lnamedate = f"{arrow.get(lstartdate).format('YYYY-MM-DD')} ({(arrow.get(lenddate)-arrow.get(lstartdate)).days} Tage)"
-            req = { 
-                'deviceId': device if device is not None else self._cfg['devid'],
-                'from': lstartdate, 
-                'to': lenddate,
-                'name': tname if tname is not None else lnamedate,
-                'maxpoints': maxpoints if maxpoints is not None else self._cfg['maxpoints']
-            }
-        return req
+    # def _traccar_payload(self, req, device=None, startdate = None, enddate=None, tname=None, maxpoints=None):
+    #     if req is None:
+    #         lstartdate = self._formatdate(startdate) if startdate is not None else self._cfg['startdate']
+    #         lenddate = self._formatdate(enddate) if enddate is not None else self._formatdate(arrow.now())
+    #         lnamedate = f"{arrow.get(lstartdate).format('YYYY-MM-DD')} ({(arrow.get(lenddate)-arrow.get(lstartdate)).days} Tage)"
+    #         req = { 
+    #             'deviceId': device if device is not None else self._cfg['devid'],
+    #             'from': lstartdate, 
+    #             'to': lenddate,
+    #             'name': tname if tname is not None else lnamedate,
+    #             'maxpoints': maxpoints if maxpoints is not None else self._cfg['maxpoints']
+    #         }
+    #     return req
 
     def _center_and_bounds(self, route):
+        t0 = time.time()
         south = min([d['latitude'] for d in route])
         north = max([d['latitude'] for d in route])
         east = min([d['longitude'] for d in route])
@@ -316,6 +295,8 @@ class Traccar:
             'se': {'latitude': south, 'longitude': east},
             'sw': {'latitude': south, 'longitude': west}
         }
+        t1 = time.time()
+        print(f"center and bounds: {t1-t0:.2f} seconds.")
         return center, bounds
 
     def _zoom(self,bounds):
@@ -323,82 +304,83 @@ class Traccar:
         exty = self._distance(bounds['nw'], bounds['sw'])
         ext = math.sqrt(extx**2 + exty**2)
         zoom = 46.527*((ext+150)**-0.288)
-        print(f"dimension: {ext:.1f},(x:{extx:.1f} y:{exty:.1f}) zoom: {zoom}")
+        print(f"zoom: ext:{ext:.1f},(x:{extx:.1f} y:{exty:.1f}) zoom: {zoom}")
         return zoom
-
-    def _clean_stand_periods(self, stand_periods):
-        for i in range(len(stand_periods)):
-            for j in range(len(stand_periods)):
-                if i != j:
-                    latdiff = stand_periods[i]['lat'] - stand_periods[j]['lat']
-                    lngdiff = stand_periods[i]['lng'] - stand_periods[j]['lng']
-                    diff = math.sqrt(latdiff**2 + lngdiff**2)
-                    if  diff < 0.005:
-                        if (stand_periods[i]['period'] > 0 and stand_periods[j]['period'] > 0):
-                            #print(f"combine {i}-{j}, distance: {diff:.4f}")
-                            stand_periods[i]['period'] += stand_periods[j]['period']
-                            stand_periods[j]['period'] = 0
-        return [d for d in stand_periods if d['period'] > 0]
-
-    def _timediff(self, pt1, pt2):
-        a = arrow.get(pt1['fixTime'])
-        b = arrow.get(pt2['fixTime'])
-        return (b - a).total_seconds()
+        
+    def _clean_stand_periods(self, stand_periods): # combine stand periods that are close to each other
+        for (i,j) in itertools.combinations(range(len(stand_periods)), 2):
+            latdiff = stand_periods[i]['lat'] - stand_periods[j]['lat']
+            lngdiff = stand_periods[i]['lng'] - stand_periods[j]['lng']
+            diff = math.sqrt(latdiff**2 + lngdiff**2)
+            if  diff < 0.005:
+                if (stand_periods[i]['period'] > 0 and stand_periods[j]['period'] > 0):
+                    #print(f"combine {i}-{j}, distance: {diff:.4f}")
+                    stand_periods[i]['period'] += stand_periods[j]['period']
+                    stand_periods[j]['period'] = 0
+        sp = [d for d in stand_periods if d['period'] > 0]
+        return sp
+    
+    def _timediff(self, pt1, pt2): # return time difference between 2 pts in seconds
+        return (arrow.get(pt2['fixTime']) - arrow.get(pt1['fixTime'])).total_seconds()
 
     def _distance(self, pt1, pt2):
-        R = 6373.0
-        lat1r = math.radians(pt1['latitude'])
-        lon1r = math.radians(pt1['longitude'])
-        lat2r = math.radians(pt2['latitude'])
-        lon2r = math.radians(pt2['longitude'])
+        R = 6373.0 # approximate radius of earth in km
+        lat1r = math.radians(pt1['latitude'])  # convert latitude of pt1 to radians
+        lon1r = math.radians(pt1['longitude']) # convert longitude pt1 to radians
+        lat2r = math.radians(pt2['latitude'])  # convert latitude of pt2 to radians
+        lon2r = math.radians(pt2['longitude']) # convert longitude pt2 to radians
         dlon = lon2r - lon1r
         dlat = lat2r - lat1r
+        # Haversine formula
         a = math.sin(dlat / 2)**2 + math.cos(lat1r) * math.cos(lat2r) * math.sin(dlon / 2)**2
         c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
         distance = R * c
-        return distance
+        return distance # in km
     
     # Berechne die Länger der Reise, die Standzeiten und deren Adressen
     def _analyzeroute(self, route):
-        total_dist = 0
-        stand_periods = []
-        sample_period = []
-        stop = {}
-        start = {}
-        standstill = False
-        for i in range(len(route)-1):
-            d = self._distance(route[i],route[i+1])
-            total_dist += d
-            if d < 0.1:
-                if not standstill:
-                    standstill = True
-                    stop = route[i]
-                sample_period.append(
+        total_dist = 0 #integrating distance in km
+        stand_periods = [] # list of standstill periods
+        sample_period = [] # list of samples within a standstill periods (a potential stop)
+        stop = {} # last stop
+        start = {} # last start
+        standstill = False # flag for standstill
+        for i in range(len(route)-1): # loop over all positions
+            d = self._distance(route[i],route[i+1]) # distance between two positions
+            # here we could store the accumulated distance for each position
+            # route[i]['distance'] = total_dist
+            # would be useful to avoid recalculation of the distance in the plot function
+            total_dist += d # integrate distance
+            if d < 0.1: # if distance is less than 100m, we assume the vehicle is standing still
+                if not standstill: # if we are not already in a standstill period
+                    standstill = True # set the flag
+                    stop = route[i] # store the stop position
+                sample_period.append( # store the position in the sample period
                     {'lat': route[i]['latitude'],
                      'lng': route[i]['longitude']})
-            else:
-                if standstill:
-                    standstill = False
-                    start = route[i]
-                    period = self._timediff(stop, start)
-                    if period > (self._cfg['standperiod']*3600.0):
-                        plat = mean([p['lat'] for p in sample_period])
-                        plng = mean([p['lng'] for p in sample_period])
-                        address = self.gmaps.reverse_geocode((plat, plng))
-                        stand_periods.append(
-                        {   'von': ' '.join(stop['fixTime'].split('T'))[:16],
-                            'bis': ' '.join(start['fixTime'].split('T'))[:16],
+            else: # if the vehicle is moving
+                if standstill: # if we are in a standstill period
+                    standstill = False # reset the flag
+                    start = route[i] # store the start position
+                    period = self._timediff(stop, start) # calculate the period
+                    if period > (self._cfg['standperiod']*3600.0): # if the period is longer than x hours
+                        plat = mean([p['lat'] for p in sample_period]) # calculate the mean latitude
+                        plng = mean([p['lng'] for p in sample_period]) # calculate the mean longitude
+                        address = self.gmaps.reverse_geocode((plat, plng)) # get the address from google api
+                        stand_periods.append( # append the standstill period (This data is used for infowindows in the plot function)
+                        {   'von': ' '.join(stop['fixTime'].split('T'))[:16], # 'von': '2021-07-01 12:00',
+                            'bis': ' '.join(start['fixTime'].split('T'))[:16], # 'bis': '2021-07-01 12:00',
                             'period': round(period//360.0/10.0),
                             'country': address[0]['address_components'][-2]['long_name'], # 'country': 'Austria',
                             'address': address[0]['formatted_address'], # 'address': 'Fiecht 1, 6235 Reith im Alpbachtal, Austria
                             'lat': plat,
                             'lng': plng,
-                            'infowindow': False
+                            'infowindow': False # flag used to show/hide infowindow in the plot function
                         })
-                        sample_period = []
-                    else:
-                        sample_period = []
-        return total_dist, stand_periods
+                    sample_period = [] # empty the sample period indepent if the period was long enough or not
+        return total_dist, stand_periods 
+        # would return route and all standstill periods from very beginning to the end
+        # if applied to the whole route in the very beginning
         
 if __name__ == '__main__':
     print('Please do not call this module directly. Use the app.py instead.')
