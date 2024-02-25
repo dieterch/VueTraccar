@@ -87,11 +87,11 @@ class Traccar:
             del self._route
             
         # fetch all data since startdate, need a dict because 'from' and 'to' are reserved words
-        args= dict()
-        args['deviceId'] = deviceId
-        args['from'] = self._formatdate(self._cfg['startdate']); 
-        args['to'] = self._formatdate(arrow.now())
-        
+        args={
+            'deviceId': deviceId,
+            'from': self._formatdate(self._cfg['startdate']), 
+            'to': self._formatdate(arrow.now())
+        }        
         self._route = self._getRouteData(**args)
         t1 = time.time()
         _, self._standstill_periods = self._analyzeroute(self._route) # prefetch the standstill periods
@@ -118,10 +118,11 @@ class Traccar:
         lastid = self._route[-1]['id']; lastdate = self._formatdate(self._route[-1]['fixTime'])
 
         # fetch only missing data, need a dict because 'from' and 'to' are reserved words
-        args= dict()
-        args['deviceId'] = kwargs['deviceId'] if 'deviceId' in kwargs else self._cfg['devid']
-        args['from'] = lastdate; 
-        args['to'] = self._formatdate(arrow.now().date()) # limit to today to enable caching
+        args={
+            'deviceId': kwargs['deviceId'],
+            'from': lastdate, 
+            'to': self._formatdate(arrow.now().date()) # limit to today to enable caching
+        }
         _newroute = self._getRouteData(**args)
         
         # filter out the records that are already in self._route
@@ -129,6 +130,8 @@ class Traccar:
         # add the new records to the self._route
         self._route.extend(newroute)
         self._standstill_periods.extend(newstandstill_periods)
+        print(f"getRouteData: {len(newroute)} new records added to route, {len(self._route)} total records.")
+        print(f"getRouteData: {len(newstandstill_periods)} new standstill periods added to standstill_periods, {len(self._standstill_periods)} total records.")
         # filter route for the requested time period
         route = [p for p in self._route if p['fixTime'] >= kwargs['from'] and p['fixTime'] <= kwargs['to']]
         return route
@@ -154,8 +157,6 @@ class Traccar:
         except requests.exceptions.HTTPError as err:
             raise SystemExit(err)
 
-
-
 # -----------------
 # complex functions
 # -----------------
@@ -176,15 +177,26 @@ class Traccar:
     def _store_travel(self, lto, lfrom, travels, **kwargs):
         # store travel if it is longer than cfg['mindays'] and shorter than cfg['maxdays']
         if ((lto - lfrom).days > self._cfg['mindays']) & ((lto - lfrom).days < self._cfg['maxdays']):
+            args = {
+                'from' : lfrom,
+                'to' : lto
+            }
+            print(f"store travel: {lfrom.format('YYYY-MM-DD')} ({(lto - lfrom).days} Tage)")
+            stand_periods = self._filter_standstill_periods(self._standstill_periods, **args)
+            travel_name = ' '.join(list(set([p['address'].split()[-1] for p in stand_periods if p['address'] != ''])))
+            for p in stand_periods:
+                print(p['address'])
+            print(travel_name, '\n')
+                
             travels.append({
-                'title': f"{lfrom.format('YYYY-MM-DD')} ({(lto - lfrom).days} Tage)",
+                'title': f"{lfrom.date()} bis {lto.date()} {travel_name}",
                 'from': { 
-                    'datetime': lfrom.format('YYYY-MM-DDTHH:mm:ss') + 'Z',
+                    'datetime': self._formatdate(lfrom),
                     #'event': lfrom_ev, # for debug
                     #'position': self.getPosition(cfg, lfrom_ev['positionId'])
                 },
                 'to': {
-                    'datetime': lto.format('YYYY-MM-DDTHH:mm:ss') + 'Z',
+                    'datetime': self._formatdate(lto),
                     #'event': lto_ev, # for debug
                     #'position': self.getPosition(cfg, lto_ev['positionId']),
                     #'debug_events': [  # for debug
@@ -201,6 +213,8 @@ class Traccar:
     
     # Travels
     def getTravels(self, **kwargs):
+        if not hasattr(self, '_route'):
+            self.getRouteData(**kwargs)                 # get the route & standstill data
         dres = [rec for rec in self.getEvents(**kwargs) if (   # only geofence #1 (Stellplatz Fiecht), Enter und Exit Events
             (rec['type'] == "geofenceEnter" or rec['type'] == "geofenceExit") and rec['geofenceId'] == 1)]  # filter for geofence events
         travels = []
@@ -222,15 +236,12 @@ class Traccar:
                     travels =  self._store_travel(lto, lfrom, travels, **kwargs) # evaluate and store the travel
                     intravel = False                    # back from travel
         return travels
- 
+
     # return data to plot the route
     def plot(self, **kwargs):
         data = self.getRouteData(**kwargs)              # get the portion of the route for the requested period
         center, bounds = self._center_and_bounds(data)  # calculate the center and bounds of the route
-        stand_periods = [p for p in self._standstill_periods if
-                            ((arrow.get(p['von']) >= arrow.get(kwargs['from']).shift(hours=-8))) and
-                            (arrow.get(p['bis']) <= arrow.get(kwargs['to']).shift(hours=8))
-                         ] # filter for the requested period
+        stand_periods = self._filter_standstill_periods(self._standstill_periods, **kwargs) # filter for the requested period
         total_dist = data[-1]['attributes']['totalDistance'] - data[0]['attributes']['totalDistance'] # total distance
         print(f"total distance: {total_dist:.0f} km = {data[-1]['attributes']['totalDistance']} - {data[0]['attributes']['totalDistance']}")                            # for debug
         markers = self._clean_stand_periods(stand_periods)                      # clean the standstill periods
@@ -293,7 +304,8 @@ class Traccar:
         extx = self._distance(bounds['nw'], bounds['ne'])
         exty = self._distance(bounds['nw'], bounds['sw'])
         ext = math.sqrt(extx**2 + exty**2)
-        zoom = 46.527*((ext+150)**-0.288)
+        #zoom = 46.527*((ext+150)**-0.288)
+        zoom = 35.936*((ext+150)**-0.243)
         print(f"zoom: ext:{ext:.1f},(x:{extx:.1f} y:{exty:.1f}) zoom: {zoom}")
         return zoom
         
@@ -309,6 +321,11 @@ class Traccar:
                     stand_periods[j]['period'] = 0
         sp = [d for d in stand_periods if d['period'] > 0]
         return sp
+
+    def _filter_standstill_periods(self, stand_periods, **kwargs):
+        return [p for p in stand_periods if
+                ((arrow.get(p['von']) >= arrow.get(kwargs['from']).shift(hours=-8)) and
+                 (arrow.get(p['bis']) <= arrow.get(kwargs['to']).shift(hours=8)))]
     
     def _timediff(self, pt1, pt2): # return time difference between 2 pts in seconds
         return (arrow.get(pt2['fixTime']) - arrow.get(pt1['fixTime'])).total_seconds()
