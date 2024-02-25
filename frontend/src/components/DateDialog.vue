@@ -23,13 +23,13 @@
                 v-model="ldate"
                 @update:model-value="update"
                 >
-            </v-date-picker>
+                </v-date-picker>
             <v-card-actions>
-                <v-spacer></v-spacer>
-                <v-btn
-                text="Ok"
-                @click="isActive.value = false"
-                ></v-btn>
+            <v-spacer></v-spacer>
+            <v-btn
+            text="Ok"
+            @click="isActive.value = false"
+            ></v-btn>
             </v-card-actions>
         </v-card>
     </template>

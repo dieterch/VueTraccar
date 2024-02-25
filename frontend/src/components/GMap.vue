@@ -2,7 +2,7 @@
 import { ref } from "vue";
 import { GoogleMap, MarkerCluster, Marker, Polyline, InfoWindow } from "vue3-google-map";
 import { GoogleMapsLink } from "@/tools"
-import { polygone, center, zoom, locations, togglemarkers, togglepath, markdownviewdialog, markdowneditdialog  } from '@/app';
+import { polygone, center, zoom, locations, togglemarkers, togglepath } from '@/app';
 import { maps_api_key } from '@/secret';
 import MarkdownViewDialog from "./MarkdownViewDialog.vue";
 import MarkdownEditDialog from "./MarkdownEditDialog.vue";
@@ -23,6 +23,8 @@ function closeInfoWindows() {
     });
 }
 
+const markdownviewdialog = ref(false)
+const markdowneditdialog = ref(false)
 const mode = ref('light')
 const content = ref(`## Markdown Basic Syntax
 
@@ -147,7 +149,15 @@ Automatic URL Linking: https://www.npmjs.com/package/vue3-markdown
     </MarkerCluster>
     <MarkdownViewDialog 
       :content="content"
-      :mode="mode" />
-    <MarkdownEditDialog />
+      :mode="mode"
+      :key="markdownviewdialog"
+      :dialog="markdownviewdialog"
+      @getMarkDownDialog="(e)=>{markdownviewdialog = e}" />
+    <MarkdownEditDialog
+      :dialog="markdowneditdialog"
+      :key="markdowneditdialog" 
+      @getMarkDownEditDialog="(e)=>{markdowneditdialog = e}"
+      @getContent="(e)=>{console.log(e)}"
+    />
   </GoogleMap>
 </template>

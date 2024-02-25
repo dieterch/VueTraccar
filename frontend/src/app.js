@@ -39,8 +39,8 @@ export async function getTravels() {
             t.title = t.newtitle
         }
     })
-    //travel.value = travels.value[travels.value.length - 1]
-    travel.value = travels.value[3]
+    travel.value = travels.value[travels.value.length - 1]
+    //travel.value = travels.value[3]
     startdate.value = new Date(travel.value.from.datetime);
     stopdate.value = new Date(travel.value.to.datetime);
     renderMap()
@@ -109,8 +109,8 @@ export const settingsdialog = ref(false)
 export async function openSettingsDialog() {
     settingsdialog.value = true
 }
-export const markdownviewdialog = ref(false)
-export const markdowneditdialog = ref(false)
+//export const markdownviewdialog = ref(false)
+//export const markdowneditdialog = ref(false)
 
 export const togglemap = ref(true)
 export const togglemarkers = ref(true)
