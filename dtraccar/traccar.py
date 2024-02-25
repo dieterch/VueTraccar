@@ -13,6 +13,7 @@ import  dtraccar
 import tomli as tml, tomli_w as tmlw
 import googlemaps
 import pandas as pd
+import uuid
 import warnings
 warnings.filterwarnings("ignore")
 
@@ -164,15 +165,34 @@ class Traccar:
     # check if the geofence exit event is valid and makes sense
     def _exit_valid(self, dres, ev, i):
         if ((i > 1) and (arrow.get(ev['serverTime']) - arrow.get(dres[i-1]['serverTime'])).seconds < self._cfg['event_min_gap']):
-                print(f"getTravels: skip   exit {i} ({ev['type']}),  {dres[i]['serverTime']}, too close to {dres[i-1]['serverTime']}")
+                print(f"getTravels: skip   exit {i} ({ev['type']}),  {self._formatdate(arrow.get(dres[i]['serverTime']))}, too close to  {self._formatdate(arrow.get(dres[i-1]['serverTime']))}")
                 return False
         return True
     
     def _return_valid(self, dres, ev, i):
         if ((i < len(dres)-1) and (arrow.get(dres[i+1]['serverTime']) - arrow.get(ev['serverTime'])).seconds < self._cfg['event_min_gap']):
-                print(f"getTravels: skip return {i} ({ev['type']}), {dres[i]['serverTime']}, too close to {dres[i+1]['serverTime']}")
+                print(f"getTravels: skip return {i} ({ev['type']}),  {self._formatdate(arrow.get(dres[i]['serverTime']))}, too close to  {self._formatdate(arrow.get(dres[i+1]['serverTime']))}")
                 return False
         return True
+    
+    
+    def _translate(self, country):
+        tl = {
+            'Austria': 'Österreich',
+            'Albania': 'Albanien',
+            'Croatia': 'Kroatien',
+            'France': 'Frankreich',
+            'Germany': 'Deutschland',
+            'Greece': 'Griechenland',
+            'Italy': 'Italien',
+            'Slovenia': 'Slowenien',
+            'Switzerland': 'Schweiz'
+        }
+        if country in tl:
+            return tl[country] 
+        else: 
+            return country
+        
     
     def _store_travel(self, lto, lfrom, travels, **kwargs):
         # store travel if it is longer than cfg['mindays'] and shorter than cfg['maxdays']
@@ -181,12 +201,15 @@ class Traccar:
                 'from' : lfrom,
                 'to' : lto
             }
-            print(f"store travel: {lfrom.format('YYYY-MM-DD')} ({(lto - lfrom).days} Tage)")
+            #print(f"store travel: {lfrom.format('YYYY-MM-DD')} ({(lto - lfrom).days} Tage)")
             stand_periods = self._filter_standstill_periods(self._standstill_periods, **args)
-            travel_name = ' '.join(list(set([p['address'].split()[-1] for p in stand_periods if p['address'] != ''])))
-            for p in stand_periods:
-                print(p['address'])
-            print(travel_name, '\n')
+            tl = list(set([p['address'].split()[-1] for p in stand_periods if p['address'] != '']))
+            tl = [self._translate(t) for t in tl]
+            travel_name = ' '.join(tl)
+            
+            # for p in stand_periods:
+            #     print(p['address'])
+            # print(travel_name, '\n')
                 
             travels.append({
                 'title': f"{lfrom.date()} bis {lto.date()} {travel_name}",
@@ -392,6 +415,7 @@ class Traccar:
                             'address': address[0]['formatted_address'], # 'address': 'Fiecht 1, 6235 Reith im Alpbachtal, Austria
                             'lat': plat,
                             'lng': plng,
+                            'key': f"marker{str(plat)[:7]}{str(plng)[:7]}".replace('.',''), # key
                             'infowindow': False # flag used to show/hide infowindow in the plot function
                         })
                     sample_period = [] # empty the sample period indepent if the period was long enough or not

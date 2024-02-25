@@ -109,6 +109,8 @@ export const settingsdialog = ref(false)
 export async function openSettingsDialog() {
     settingsdialog.value = true
 }
+export const markdownviewdialog = ref(false)
+export const markdowneditdialog = ref(false)
 
 export const togglemap = ref(true)
 export const togglemarkers = ref(true)
