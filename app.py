@@ -17,12 +17,6 @@ from quart_cors import cors
 import subprocess
 import time
 
-# try:
-#     import tomllib as toml
-# except ImportError as e:
-#     print('tomllib not found. using "tomli" instead.')
-#     import tomli as toml
-
 import dtraccar
 T = dtraccar.Traccar()
 
@@ -31,12 +25,10 @@ class CustomQuart(Quart):
     jinja_options = Quart.jinja_options.copy()
     jinja_options.update(dict( block_start_string='<%', block_end_string='%>', variable_start_string='%%', 
                               variable_end_string='%%',comment_start_string='<#',comment_end_string='#>',))
-
 # use the same directories as in the vite.config.js
 app = CustomQuart(__name__, static_folder = "dist/static", template_folder = "dist", static_url_path = "/static")
 app = cors(app, allow_origin="*")
 app.config.from_object(__name__)
-
 
 # force IE or Chrome compatibility, cache rendered page for x minutes.
 # uncomment to disable caching, e.g. for development when you are changing the frontend often.
@@ -60,7 +52,7 @@ async def route():
     await request.get_data()
     if request.method == 'POST':
         req = await request.json
-        return T.getData(**req)
+        return T.getRouteData(**req)
 
 # route to call for traccar data
 @app.route("/events", methods=['POST'])

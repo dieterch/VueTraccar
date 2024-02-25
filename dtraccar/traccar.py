@@ -5,6 +5,7 @@ import os
 import time
 import requests
 import itertools
+import functools
 from statistics import mean
 import pprint
 from pprint import pprint as pp, pformat as pf
@@ -73,12 +74,14 @@ class Traccar:
         except requests.exceptions.HTTPError as err:
             raise SystemExit(err) 
 
-    def _prefetch_filename(self, deviceId):
-        return f"{self._cfg['prefetch_route']}_{deviceId}.hdf"
+    def _pfname(self, deviceId): # return the filename for the prefetch data
+        name = self._cfg['prefetch_route'][:-4]
+        extension = self._cfg['prefetch_route'][-4:]
+        return f"{name}_deviceId{deviceId}{extension}"
 
     # prefetch route data
     def prefetchRouteData(self, deviceId=4):
-        print(f"fetch route data from {self._cfg['url']}")
+        print(f"prefetching file {self._pfname(deviceId)} from {self._cfg['url']}")
         t0 = time.time()
         if hasattr(self, '_route'):
             del self._route
@@ -90,51 +93,55 @@ class Traccar:
         args['to'] = self._formatdate(arrow.now())
         
         self._route = self._getRouteData(**args)
-        pd.DataFrame(self._route).to_hdf(self._cfg['prefetch_route'], "data", complevel=6)
         t1 = time.time()
-        print(f"route : {len(self._route)} recs fetched & stored in {t1-t0:.2f} seconds.")
+        _, self._standstill_periods = self._analyzeroute(self._route) # prefetch the standstill periods
+        t2 = time.time()
+        pd.DataFrame(self._route).to_hdf(self._pfname(deviceId), "data", complevel=6)
+        pd.DataFrame(self._standstill_periods).to_hdf(self._pfname(deviceId), "standstill", complevel=6)        
+        t3 = time.time()
+        print(f"route prefetch : {len(self._route)} recs, store {t1-t0:.2f} sec, analyze {t2-t1:.2f}, total {t3-t0:.2f} sec.")
         return {"records" : len(self._route), "time": t1-t0}
         
     def getRouteData(self, **kwargs):
-        cfg = self._cfg
         if hasattr(self, '_route'):
-            if not os.path.isfile(cfg['prefetch_route']):
+            if not os.path.isfile(self._pfname(kwargs['deviceId'])):
                 print(f"prefetching  ... deleting 'self._route'")
                 del self._route            
         if not hasattr(self, '_route'): # no else here, as the route may be deleted in the if clause
             # handle caching of route data
-            if not os.path.isfile(cfg['prefetch_route']):
-                print(f"prefetching file {cfg['prefetch_route']} ...")
+            if not os.path.isfile(self._pfname(kwargs['deviceId'])):
                 self.prefetchRouteData() # self._route is created here as a side effect
             else:
-                self._route = pd.read_hdf(self._cfg['prefetch_route'], "data").to_dict(orient='records')
+                self._route = pd.read_hdf(self._pfname(kwargs['deviceId']), "data").to_dict(orient='records')
+                self._standstill_periods = pd.read_hdf(self._pfname(kwargs['deviceId']), "standstill").to_dict(orient='records')
         # now we have a valid self._route 
         lastid = self._route[-1]['id']; lastdate = self._formatdate(self._route[-1]['fixTime'])
 
         # fetch only missing data, need a dict because 'from' and 'to' are reserved words
         args= dict()
-        args['deviceId'] = kwargs['deviceId'] if 'deviceId' in kwargs else cfg['devid']
+        args['deviceId'] = kwargs['deviceId'] if 'deviceId' in kwargs else self._cfg['devid']
         args['from'] = lastdate; 
-        args['to'] = self._formatdate(arrow.now()) 
+        args['to'] = self._formatdate(arrow.now().date()) # limit to today to enable caching
         _newroute = self._getRouteData(**args)
         
         # filter out the records that are already in self._route
-        newroute = [r for r in _newroute if r['id'] > lastid]
+        newroute, newstandstill_periods = self._analyzeextendedroute([r for r in _newroute if r['id'] > lastid])
         # add the new records to the self._route
         self._route.extend(newroute)
+        self._standstill_periods.extend(newstandstill_periods)
         # filter route for the requested time period
-        route = [p for p in self._route if p['fixTime'] > kwargs['from'] and p['fixTime'] < kwargs['to']]
+        route = [p for p in self._route if p['fixTime'] >= kwargs['from'] and p['fixTime'] <= kwargs['to']]
         return route
  
     # Routes
+    @functools.cache
     def _getRouteData(self, **kwargs):
         t0 = time.time()
-        cfg = self._cfg
         parameters = self._par(['deviceId', 'from', 'to'], **kwargs)
         try:
             r = requests.get(
-                cfg['url'] + '/api/reports/route', 
-                auth=(cfg['user'], cfg['password']), 
+                self._cfg['url'] + '/api/reports/route', 
+                auth=(self._cfg['user'], self._cfg['password']), 
                 headers={"Accept": "application/json; charset=utf-8"},
                 params=parameters,
                 timeout=100.000)
@@ -153,80 +160,82 @@ class Traccar:
 # complex functions
 # -----------------
 
+    # check if the geofence exit event is valid and makes sense
+    def _exit_valid(self, dres, ev, i):
+        if ((i > 1) and (arrow.get(ev['serverTime']) - arrow.get(dres[i-1]['serverTime'])).seconds < self._cfg['event_min_gap']):
+                print(f"getTravels: skip   exit {i} ({ev['type']}),  {dres[i]['serverTime']}, too close to {dres[i-1]['serverTime']}")
+                return False
+        return True
+    
+    def _return_valid(self, dres, ev, i):
+        if ((i < len(dres)-1) and (arrow.get(dres[i+1]['serverTime']) - arrow.get(ev['serverTime'])).seconds < self._cfg['event_min_gap']):
+                print(f"getTravels: skip return {i} ({ev['type']}), {dres[i]['serverTime']}, too close to {dres[i+1]['serverTime']}")
+                return False
+        return True
+    
+    def _store_travel(self, lto, lfrom, travels, **kwargs):
+        # store travel if it is longer than cfg['mindays'] and shorter than cfg['maxdays']
+        if ((lto - lfrom).days > self._cfg['mindays']) & ((lto - lfrom).days < self._cfg['maxdays']):
+            travels.append({
+                'title': f"{lfrom.format('YYYY-MM-DD')} ({(lto - lfrom).days} Tage)",
+                'from': { 
+                    'datetime': lfrom.format('YYYY-MM-DDTHH:mm:ss') + 'Z',
+                    #'event': lfrom_ev, # for debug
+                    #'position': self.getPosition(cfg, lfrom_ev['positionId'])
+                },
+                'to': {
+                    'datetime': lto.format('YYYY-MM-DDTHH:mm:ss') + 'Z',
+                    #'event': lto_ev, # for debug
+                    #'position': self.getPosition(cfg, lto_ev['positionId']),
+                    #'debug_events': [  # for debug
+                    #    e for e in dres \
+                    #    if ((arrow.get(e['serverTime']) > lfrom.shift(days=-2)) and 
+                    #        (arrow.get(e['serverTime']) < lto.shift(days=2)) and 
+                    #        (e['geofenceId'] == 1))
+                    #]
+                },
+                'tage': (lto - lfrom).days, # duration in days
+                'device': kwargs['deviceId'] if 'deviceId' in kwargs else self._cfg['devid']
+            })
+        return travels
+    
     # Travels
     def getTravels(self, **kwargs):
-        cfg = self._cfg
-        _events = self.getEvents(**kwargs)
-            
-        # filter events for geofence #1 Stellplatz Fiecht Enter und Exit Events
-        dres = [rec for rec in _events if (
-            (rec['type'] == "geofenceEnter" or rec['type'] == "geofenceExit") and rec['geofenceId'] == 1)]  # auf geofece events filtern
+        dres = [rec for rec in self.getEvents(**kwargs) if (   # only geofence #1 (Stellplatz Fiecht), Enter und Exit Events
+            (rec['type'] == "geofenceEnter" or rec['type'] == "geofenceExit") and rec['geofenceId'] == 1)]  # filter for geofence events
         travels = []
-        
-        # state intravel
-        intravel = False
-        # loop over events
-        for i, ev in enumerate(dres):
-            if ev['type'] == 'geofenceExit':  # Go for a trip
-                # check if multiple Events happen within cfg['event_min_gap'] seconds
-                if i > 1:
-                    #print(f"check event {i} from {len(dres)-1}")
-                    if (arrow.get(ev['serverTime']) - arrow.get(dres[i-1]['serverTime'])).seconds < self._cfg['event_min_gap']:
-                            print(f"getTravels: skip event {i}({ev['type']}) at {dres[i]['serverTime']} because it is too close to {dres[i-1]['serverTime']}")
-                            continue # skip this event
-                # exit for a trip detected, store in lfrom
-                lfrom = arrow.get(ev['serverTime'])
-                lfrom_ev = ev # for debug
+        intravel = False                                # state variable intravel
+
+        for i, ev in enumerate(dres):                   # loop over events
+            if ev['type'] == 'geofenceExit':            # Go for a trip
+                if not self._exit_valid(dres, ev, i):
+                    continue                            # skip events that are too close to the previous one
+                lfrom = arrow.get(ev['serverTime'])     # exit from greofence for a trip detected, store in lfrom
+                # lfrom_ev = ev                           # for debug
                 intravel = True
-
             if intravel:
-                if ev['type'] == 'geofenceEnter':  # come back from a trip
-                    # check if multiple Events happen within cfg['event_min_gap'] seconds
-                    if i < len(dres)-1:
-                        if (arrow.get(dres[i+1]['serverTime']) - arrow.get(ev['serverTime'])).seconds < self._cfg['event_min_gap']:
-                            print(f"getTravels: skip event {i}({ev['type']}) at {dres[i]['serverTime']} because it is too close to {dres[i+1]['serverTime']}")
-                            continue # skip this event
-                        
-                    # enter, return from a trip detected, store in lto
-                    lto = arrow.get(ev['serverTime'])
-                    lto_ev = ev # for debug
-                    
-                    # store travel if it is longer than cfg['mindays'] and shorter than cfg['maxdays']
-                    if ((lto - lfrom).days > self._cfg['mindays']) & ((lto - lfrom).days < self._cfg['maxdays']):
-                        travels.append({
-                            'title': f"{lfrom.format('YYYY-MM-DD')} ({(lto - lfrom).days} Tage)",
-                            'from': { 
-                                'datetime': lfrom.format('YYYY-MM-DDTHH:mm:ss') + 'Z',
-                                #'event': lfrom_ev, # for debug
-                                #'position': self.getPosition(cfg, lfrom_ev['positionId'])
-                            },
-                            'to': {
-                                'datetime': lto.format('YYYY-MM-DDTHH:mm:ss') + 'Z',
-                                #'event': lto_ev, # for debug
-                                #'position': self.getPosition(cfg, lto_ev['positionId']),
-                                #'debug_events': [  # for debug
-                                #    e for e in dres \
-                                #    if ((arrow.get(e['serverTime']) > lfrom.shift(days=-2)) and 
-                                #        (arrow.get(e['serverTime']) < lto.shift(days=2)) and 
-                                #        (e['geofenceId'] == 1))
-                                #]
-                            },
-                            'tage': (lto - lfrom).days, # duration in days
-                            'device': kwargs['deviceId'] if 'deviceId' in kwargs else cfg['devid']
-                        })
-                    intravel = False # back from travel
-
+                if ev['type'] == 'geofenceEnter':       # come back from a trip
+                    if not self._return_valid(dres, ev, i):
+                            continue                    # skip events that are too close to the next one
+                    lto = arrow.get(ev['serverTime'])   # return to gefence from a trip detected, store in lto
+                    # lto_ev = ev                         # for debug
+                    travels =  self._store_travel(lto, lfrom, travels, **kwargs) # evaluate and store the travel
+                    intravel = False                    # back from travel
         return travels
  
     # return data to plot the route
     def plot(self, **kwargs):
-        cfg = self._cfg
-        _route = self.getRouteData(**kwargs)
-        center, bounds = self._center_and_bounds(_route)
-        total_dist, stand_periods = self._analyzeroute(_route)
-        markers = self._clean_stand_periods(stand_periods)
-        print(f"centerlat: {center['lat']:.1f}, centerlng: {center['lng']:.1f}")
-        plotdata = [{"lat": d['latitude'], "lng": d['longitude']} for d in _route]
+        data = self.getRouteData(**kwargs)              # get the portion of the route for the requested period
+        center, bounds = self._center_and_bounds(data)  # calculate the center and bounds of the route
+        stand_periods = [p for p in self._standstill_periods if
+                            ((arrow.get(p['von']) >= arrow.get(kwargs['from']).shift(hours=-8))) and
+                            (arrow.get(p['bis']) <= arrow.get(kwargs['to']).shift(hours=8))
+                         ] # filter for the requested period
+        total_dist = data[-1]['attributes']['totalDistance'] - data[0]['attributes']['totalDistance'] # total distance
+        print(f"total distance: {total_dist:.0f} km = {data[-1]['attributes']['totalDistance']} - {data[0]['attributes']['totalDistance']}")                            # for debug
+        markers = self._clean_stand_periods(stand_periods)                      # clean the standstill periods
+        print(f"centerlat: {center['lat']:.1f}, centerlng: {center['lng']:.1f}") # for debug
+        plotdata = [{"lat": d['latitude'], "lng": d['longitude']} for d in data] # prepare the data for the plot
         #pp(markers)        
         #pp(stand_periods[:5])
         return {
@@ -254,30 +263,11 @@ class Traccar:
 # local helper functions
 # ---------------------- 
 
-    def _par(self, parameters, **kwargs):
+    def _par(self, parameters, **kwargs): # limit parameters to the api-defined ones (for requests)
         return {a: kwargs[a] for a in kwargs if a in parameters}
     
-    def _cfghelp(self, cfg):
-        if cfg is None:
-            cfg = self._cfg
-        return cfg
-
     def _formatdate(self, d):
         return arrow.get(d).format('YYYY-MM-DDTHH:mm:ss') + 'Z'
-
-    # def _traccar_payload(self, req, device=None, startdate = None, enddate=None, tname=None, maxpoints=None):
-    #     if req is None:
-    #         lstartdate = self._formatdate(startdate) if startdate is not None else self._cfg['startdate']
-    #         lenddate = self._formatdate(enddate) if enddate is not None else self._formatdate(arrow.now())
-    #         lnamedate = f"{arrow.get(lstartdate).format('YYYY-MM-DD')} ({(arrow.get(lenddate)-arrow.get(lstartdate)).days} Tage)"
-    #         req = { 
-    #             'deviceId': device if device is not None else self._cfg['devid'],
-    #             'from': lstartdate, 
-    #             'to': lenddate,
-    #             'name': tname if tname is not None else lnamedate,
-    #             'maxpoints': maxpoints if maxpoints is not None else self._cfg['maxpoints']
-    #         }
-    #     return req
 
     def _center_and_bounds(self, route):
         t0 = time.time()
@@ -296,7 +286,7 @@ class Traccar:
             'sw': {'latitude': south, 'longitude': west}
         }
         t1 = time.time()
-        print(f"center and bounds: {t1-t0:.2f} seconds.")
+        print(f"calculate route center and bounds: {t1-t0:.2f} seconds.")
         return center, bounds
 
     def _zoom(self,bounds):
@@ -337,9 +327,21 @@ class Traccar:
         distance = R * c
         return distance # in km
     
+    def _analyzeextendedroute(self, extendedroute): # analyze extended route
+        # take the last distance from the previous route and add it to route[i]['attributes']['totalDistance']
+        extended_standStill_periods = []
+        if len(extendedroute) > 0:
+            last_total_distance = self._route[-1]['attributes']['totalDistance']
+            extendedroute, extended_standStill_periods = self._analyzeroute(extendedroute)
+            for position in extendedroute:
+                position['attributes']['totalDistance'] += last_total_distance
+            # calculate the standstill periods
+        return extendedroute, extended_standStill_periods
+        
     # Berechne die Länger der Reise, die Standzeiten und deren Adressen
     def _analyzeroute(self, route):
-        total_dist = 0 #integrating distance in km
+        route[0]['attributes']['totalDistance'] = 0.0 # reuse this field, reset the counter.
+        total_dist = 0.0 # total distance
         stand_periods = [] # list of standstill periods
         sample_period = [] # list of samples within a standstill periods (a potential stop)
         stop = {} # last stop
@@ -347,10 +349,8 @@ class Traccar:
         standstill = False # flag for standstill
         for i in range(len(route)-1): # loop over all positions
             d = self._distance(route[i],route[i+1]) # distance between two positions
-            # here we could store the accumulated distance for each position
-            # route[i]['distance'] = total_dist
-            # would be useful to avoid recalculation of the distance in the plot function
             total_dist += d # integrate distance
+            route[i]['attributes']['totalDistance'] = total_dist # store the accumulated distance
             if d < 0.1: # if distance is less than 100m, we assume the vehicle is standing still
                 if not standstill: # if we are not already in a standstill period
                     standstill = True # set the flag
@@ -378,9 +378,8 @@ class Traccar:
                             'infowindow': False # flag used to show/hide infowindow in the plot function
                         })
                     sample_period = [] # empty the sample period indepent if the period was long enough or not
-        return total_dist, stand_periods 
-        # would return route and all standstill periods from very beginning to the end
-        # if applied to the whole route in the very beginning
+        route[-1]['attributes']['totalDistance'] = total_dist # store the accumulated distance aso for the last position in route
+        return route, stand_periods 
         
 if __name__ == '__main__':
     print('Please do not call this module directly. Use the app.py instead.')

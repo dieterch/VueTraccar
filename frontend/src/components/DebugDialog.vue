@@ -91,7 +91,7 @@ getEvents  } from '@/app';
                 </v-container>
           </v-card-text>
           <v-card-actions>
-            <v-btn block @click="settingsdialog = false">Close Dialog</v-btn>
+            <v-btn block @click="settingsdialog = false">Ok</v-btn>
           </v-card-actions>
         </v-card>
       </v-dialog>
