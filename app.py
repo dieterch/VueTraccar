@@ -12,9 +12,11 @@ import json
 import math
 import os
 from pprint import pformat as pf, pprint as pp
-from quart import Quart, jsonify, render_template, request, redirect, url_for, send_file, send_from_directory
+from quart import Quart, jsonify, render_template, request, \
+    redirect, url_for, send_file, send_from_directory, abort
 from quart_cors import cors
 import subprocess
+import re
 import time
 
 import dtraccar
@@ -62,9 +64,6 @@ async def events():
         req = await request.json
         return T.getEvents(**req)
 
-def _help(**kwargs):
-    print('req as kwargs:', kwargs)
-
 # route to call for traccar data
 @app.route("/travels", methods=['POST'])
 async def travels():
@@ -88,6 +87,41 @@ async def plot():
     if request.method == 'POST':
         req = await request.json
         return T.plot(**req)
+    
+@app.route("/document/<key>", methods=['GET','POST'])
+async def document(key):
+    await request.get_data()
+    pattern = re.compile("^marker([0-9]+)+$")
+    if not pattern.match(key):
+        abort(400)
+    else:
+        if request.method == 'POST':
+            req = await request.json
+            return {'key':key, 'data':req}
+        else:
+            return T.getDocument(key)
+
+@app.route("/icloudshare/<key>", methods=['GET'])
+def icloudshare(key):
+    url = f"https://www.icloud.com/sharedalbum/#{key}"
+    print(key)
+    return f"""
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Icloud Foto share</title>
+  </head>
+  <body>
+  <p>
+    <a href="javascript:window.history.back();"><button>Back</button></a>
+  </p>
+  <p>
+    <a href={url} target="_blank" onclick="javascript:window.history.back();"><button>iCloud Share in new Tab</button></a>
+  </p>
+  </body>
+</html>
+"""
+    #return f'<a href="javascript:window.history.back();">Back</a> - <a href={url} target="_blank" onclick="javascript:window.history.back();">Open iCloud Share Fotos in a new Tab</a>'
 
 # deliver the vuetify frontend
 @app.route("/")

@@ -2,7 +2,7 @@
 import { ref } from "vue";
 import { GoogleMap, MarkerCluster, Marker, Polyline, InfoWindow } from "vue3-google-map";
 import { GoogleMapsLink } from "@/tools"
-import { polygone, center, zoom, locations, togglemarkers, togglepath } from '@/app';
+import { polygone, center, zoom, locations, togglemarkers, togglepath, getMDDocument } from '@/app';
 import { maps_api_key } from '@/secret';
 import MarkdownViewDialog from "./MarkdownViewDialog.vue";
 import MarkdownEditDialog from "./MarkdownEditDialog.vue";
@@ -52,6 +52,15 @@ Automatic URL Linking: https://www.npmjs.com/package/vue3-markdown
 | --------- | ----------- |
 | Header    | Title       |
 | Paragraph | Text        |`);
+
+const ncontent = ref('## nothing.')
+async function openviewdialog(key) {
+    console.log('openviewdialog', key)
+    const doc = await getMDDocument(key)
+    console.log('openviewdialog', doc)
+    ncontent.value = doc
+    markdownviewdialog.value = true
+}
 
 </script>
 
@@ -114,33 +123,21 @@ Automatic URL Linking: https://www.npmjs.com/package/vue3-markdown
                   :href="GoogleMapsLink(location.lat, location.lng)">
                   Link zu Google Maps</a>
                 </p>
-                <p>
-                  <a target="_blank"
-                    :href="encodeURI('https://www.icloud.com/sharedalbum/de-de/#B0vJtdOXmJpNlWI')">
-                  Link zu iCloud Album</a>
-                </p>
-                <p>
-                  <a target="_blank"
-                    :href="encodeURI('https://cvws.icloud-content.com/S/Abgs8izSHXtNQL5CrRDBGVK5pRqx/IMG_0110.JPG?o=AvbJ2XfE3SzlDQm8Mq0pfF-k5KPCvkiKT7BCOO1saarY&v=1&z=https%3A%2F%2Fp57-content.icloud.com%3A443&x=1&a=CAogCdQzNhL5KZP9b0qRZ08l-bRp3Kj7WSpObxyAlg9FL9ESYxDMzqOG3jEYzOW2i94xIgEAUgS5pRqxaiSuBMoHJ2a1cCfsy0-8lJYMywUHNbgmMPvnxuZPXfdxzt4RC6VyJMsalj_ai6FOpKIILwyXpD1YAKHOcRFsMlSPWao81jnOR1rfYw&e=1708884079&r=7c0b3d01-36e2-4d7c-94ef-61368f782cc9-43&s=-663dmnyKNWQWbLpBr8PWuiOBi4')">
-                  Link zu iCloud Bild</a>
-                </p>
-                <br>
-                <p>{{ location.key }}</p>
                 <v-btn
                   color="primary"
                   class="ma-2"
                   size="x-small"
-                  @click="markdownviewdialog = true"
+                  @click="openviewdialog(location.key)"
                 >
-                  View Markdown
+                  Beschreibung
                 </v-btn>
                 <v-btn
-                  color="secondary"
+                  color="tertiary"
                   class="ma-2"
                   size="x-small"
                   @click="markdowneditdialog = true"
                 >
-                  Edit Markdown
+                  Beschreibung editieren
                 </v-btn>
               </div>
           </div>
@@ -148,7 +145,7 @@ Automatic URL Linking: https://www.npmjs.com/package/vue3-markdown
         </Marker>
     </MarkerCluster>
     <MarkdownViewDialog 
-      :content="content"
+      :content="ncontent"
       :mode="mode"
       :key="markdownviewdialog"
       :dialog="markdownviewdialog"

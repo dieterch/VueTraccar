@@ -23,9 +23,9 @@ const update = () => {
         width="auto"
         >
         <v-card>
-        <v-card-title>
+        <!--v-card-title>
             Markdown Viewer
-        </v-card-title>
+        </v-card-title-->
         <v-card-text>
         <VMarkdownView
             :mode="mode"
@@ -39,7 +39,7 @@ const update = () => {
             variant="text"
             @click="ldialog = false; update()"
             >
-            Close
+            Schliessen
             </v-btn>
         </v-card-actions>
         </v-card>

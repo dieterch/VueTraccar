@@ -89,6 +89,12 @@ export const locations = ref([])
 //         ne: {lat: Math.max(...lat), lng: Math.max(...lng)}
 //     }
 // })
+export async function getMDDocument(key) {
+    let response =  await rget(`/document/${key}`)
+    // console.log(response)
+    return response['md']
+}
+
 export async function renderMap() {
     const loader = $loading.show({
         // Optional parameters

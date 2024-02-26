@@ -15,6 +15,7 @@ import googlemaps
 import pandas as pd
 import uuid
 import warnings
+import os
 warnings.filterwarnings("ignore")
 
 ############################## Class Interface ##############################
@@ -292,6 +293,15 @@ class Traccar:
         full_path = file_path + file_name
         dtraccar.writeKML(cfg, parameters, full_path, kmldata)
         return file_name, full_path
+    
+    def getDocument(self, key, **kwargs):
+        file_path = f"documents/{key}.rst"
+        if os.path.exists(file_path):
+            with open(file_path, 'r') as file:
+                content = file.read()
+                return {'md': content}
+        else:
+            return {'md': f"please create '{file_path}'"}
 
 # ----------------------
 # local helper functions
