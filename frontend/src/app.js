@@ -1,17 +1,10 @@
 import { ref, shallowRef, computed } from 'vue'
-import { rpost, rget, DECtoDMS, tracdate } from './tools.js'
+import { rpost, rget, DECtoDMS, tracdate, getCookie } from './tools.js'
 import { useLoading } from 'vue-loading-overlay'
-
 const $loading = useLoading({
     // Optional parameters
 })
 const fullPage = ref(false)
-
-//import axios from 'axios';
-
-//export const host = ref(window.location.host)
-//export const protocol = ref(window.location.protocol)    
-// export const devicesRec = ref([])
 
 export const device = ref({name:'WMB Tk106', id:4})
 export const startdate = ref(new Date('2019-03-01T00:00:00Z'))
@@ -39,7 +32,14 @@ export async function getTravels() {
             t.title = t.newtitle
         }
     })
-    travel.value = travels.value[travels.value.length - 1]
+
+    if (getCookie('travelindex') != '') {
+        let index = getCookie('travelindex')
+        console.log('load cookie travelindex:', index)
+        travel.value = travels.value[index]
+    } else {
+        travel.value = travels.value[travels.value.length - 1]
+    }
     //travel.value = travels.value[3]
     startdate.value = new Date(travel.value.from.datetime);
     stopdate.value = new Date(travel.value.to.datetime);
@@ -94,6 +94,14 @@ export async function getMDDocument(key) {
     // console.log(response)
     return response['md']
 }
+
+export async function saveMDDocument(key, doc) {
+    console.log('saveMDDocument:', key, doc)
+    let response =  await rpost(`/document/${key}`, {'md': doc})
+    // console.log(response)
+    return response['md']
+}
+
 
 export async function renderMap() {
     const loader = $loading.show({

@@ -16,6 +16,7 @@ import pandas as pd
 import uuid
 import warnings
 import os
+import re
 warnings.filterwarnings("ignore")
 
 ############################## Class Interface ##############################
@@ -303,6 +304,18 @@ class Traccar:
         else:
             return {'md': f"please create '{file_path}'"}
 
+
+    def saveDocument(self, key, **kwargs):
+        file_path = f"documents/{key}.rst"
+        doc = kwargs['md']
+        regex = r"^.*\[(.*)\]\((.*)\)"
+        subst = "<a href=\"\\2\" target=\"_blank\">\\1</a>"
+        newdoc = re.sub(regex, subst, doc, 0, re.MULTILINE)
+        print(newdoc)
+        with open(file_path, 'w') as file:
+            file.write(newdoc)
+            return {'md': newdoc}  
+        
 # ----------------------
 # local helper functions
 # ---------------------- 

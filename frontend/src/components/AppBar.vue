@@ -2,6 +2,7 @@
 import { ref, mergeProps } from 'vue';
 import { startdate, stopdate, travel, travels, openSettingsDialog,
     distance, getTravels, renderMap, downloadkml } from '@/app';
+import { setCookie } from '@/tools'; 
 
 function setStartDate(params) { 
     startdate.value = params;
@@ -14,13 +15,13 @@ async function update_travel(item) {
     var index = travels.value.map(function(e) { return e.title; }).indexOf(item);
     console.log(item, index, travels.value[index]);
     travel.value = travels.value[index]
+    setCookie('travelindex', index, 30)
     startdate.value = new Date(travels.value[index].from.datetime);
     stopdate.value = new Date(travels.value[index].to.datetime);
     renderMap()
 
 
 }
-
 
 const menuitems = ref(['Debug', 'Export als KML']) //, 'Export als GPX', 'Export als CSV', 'Export als PDF'])
 async function domenu(item) {

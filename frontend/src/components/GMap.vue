@@ -2,10 +2,13 @@
 import { ref } from "vue";
 import { GoogleMap, MarkerCluster, Marker, Polyline, InfoWindow } from "vue3-google-map";
 import { GoogleMapsLink } from "@/tools"
-import { polygone, center, zoom, locations, togglemarkers, togglepath, getMDDocument } from '@/app';
+import { polygone, center, zoom, locations, togglemarkers, togglepath, getMDDocument, saveMDDocument } from '@/app';
 import { maps_api_key } from '@/secret';
 import MarkdownViewDialog from "./MarkdownViewDialog.vue";
 import MarkdownEditDialog from "./MarkdownEditDialog.vue";
+import MDEditorDialog from "./MDEditorDialog.vue";
+import MDViewDialog from "./MDViewDialog.vue";
+
 
 // const center = ref({ lat: 47.389207790740315, lng: 11.774475611608988 });
 const flightPath = ref({
@@ -25,6 +28,8 @@ function closeInfoWindows() {
 
 const markdownviewdialog = ref(false)
 const markdowneditdialog = ref(false)
+const mdeditdialog = ref(false)
+const mdviewdialog = ref(false)
 const mode = ref('light')
 const content = ref(`## Markdown Basic Syntax
 
@@ -60,6 +65,22 @@ async function openviewdialog(key) {
     console.log('openviewdialog', doc)
     ncontent.value = doc
     markdownviewdialog.value = true
+}
+
+async function openmdviewdialog(key) {
+    console.log('openviewdialog', key)
+    ncontent.value = await getMDDocument(key)
+    // console.log('openviewdialog', doc)
+    mdviewdialog.value = true
+}
+
+const file = ref('')
+async function openmdeditdialog(key) {
+    console.log('openeditdialog', key)
+    ncontent.value = await getMDDocument(key)
+    // console.log('openviewdialog', key, doc)
+    file.value = key
+    mdeditdialog.value = true
 }
 
 </script>
@@ -123,22 +144,42 @@ async function openviewdialog(key) {
                   :href="GoogleMapsLink(location.lat, location.lng)">
                   Link zu Google Maps</a>
                 </p>
-                <v-btn
-                  color="primary"
-                  class="ma-2"
-                  size="x-small"
-                  @click="openviewdialog(location.key)"
-                >
-                  Beschreibung
-                </v-btn>
-                <v-btn
-                  color="tertiary"
-                  class="ma-2"
-                  size="x-small"
-                  @click="markdowneditdialog = true"
-                >
+                <!--p>
+                  <v-btn
+                    color="primary"
+                    class="ma-2"
+                    size="x-small"
+                    @click="openviewdialog(location.key)"
+                    >
+                    Beschreibung
+                  </v-btn>
+                  <v-btn
+                    color="tertiary"
+                    class="ma-2"
+                    size="x-small"
+                    @click="markdowneditdialog = true"
+                  >
                   Beschreibung editieren
-                </v-btn>
+                  </v-btn>
+                </p-->
+                <p> 
+                  <v-btn
+                    color="primary"
+                    class="ma-2"
+                    size="x-small"
+                    @click="openmdviewdialog(location.key)"
+                  >
+                    MD View
+                  </v-btn>
+                  <v-btn
+                    color="tertiary"
+                    class="ma-2"
+                    size="x-small"
+                    @click="openmdeditdialog(location.key)"
+                  >
+                    MD Editor
+                  </v-btn>
+                </p>
               </div>
           </div>
         </InfoWindow>
@@ -155,6 +196,20 @@ async function openviewdialog(key) {
       :key="markdowneditdialog" 
       @getMarkDownEditDialog="(e)=>{markdowneditdialog = e}"
       @getContent="(e)=>{console.log(e)}"
+    />
+    <MDViewDialog 
+      :content="ncontent"
+      :mode="mode"
+      :key="mdviewdialog"
+      :dialog="mdviewdialog"
+      @getMDViewDialog="(e)=>{mdviewdialog = e}" />
+    <MDEditorDialog
+      :content="ncontent"
+      :file="file"
+      :dialog="mdeditdialog"
+      :key="mdeditdialog" 
+      @getMDEditDialog="(e)=>{mdeditdialog = e}"
+      @getContent="(e)=>{saveMDDocument(e.key, e.doc)}"
     />
   </GoogleMap>
 </template>

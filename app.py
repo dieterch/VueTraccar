@@ -97,31 +97,9 @@ async def document(key):
     else:
         if request.method == 'POST':
             req = await request.json
-            return {'key':key, 'data':req}
+            return T.saveDocument(key, **req)
         else:
             return T.getDocument(key)
-
-@app.route("/icloudshare/<key>", methods=['GET'])
-def icloudshare(key):
-    url = f"https://www.icloud.com/sharedalbum/#{key}"
-    print(key)
-    return f"""
-<!DOCTYPE html>
-<html>
-  <head>
-    <title>Icloud Foto share</title>
-  </head>
-  <body>
-  <p>
-    <a href="javascript:window.history.back();"><button>Back</button></a>
-  </p>
-  <p>
-    <a href={url} target="_blank" onclick="javascript:window.history.back();"><button>iCloud Share in new Tab</button></a>
-  </p>
-  </body>
-</html>
-"""
-    #return f'<a href="javascript:window.history.back();">Back</a> - <a href={url} target="_blank" onclick="javascript:window.history.back();">Open iCloud Share Fotos in a new Tab</a>'
 
 # deliver the vuetify frontend
 @app.route("/")
