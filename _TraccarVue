@@ -1,5 +1,5 @@
 pushd /root/prog/python/VueTraccar
 tmux \
 new-session -s 'TraccarVue' 'while true; do source _app; done' \; \
-# detach -s 'TraccarVue'
+detach -s 'TraccarVue'
 popd
