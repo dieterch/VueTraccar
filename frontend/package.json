@@ -14,9 +14,7 @@
     "roboto-fontface": "*",
     "vue": "^3.3.0",
     "vue-loading-overlay": "^6.0.4",
-    "vue3-cookies": "^1.0.6",
     "vue3-google-map": "^0.19.0",
-    "vue3-markdown": "^1.1.9",
     "vuetify": "^3.0.0"
   },
   "devDependencies": {

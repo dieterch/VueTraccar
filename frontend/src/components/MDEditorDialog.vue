@@ -1,14 +1,13 @@
-<script setup>
-import { ref, defineEmits, defineProps } from 'vue'
-import { VMarkdownEditor } from 'vue3-markdown'
-import 'vue3-markdown/dist/style.css'
+<script setup lang="ts">
+import { ref, defineEmits, defineProps , onMounted } from 'vue';
 import { MdEditor } from 'md-editor-v3';
+import type { ExposeParam } from 'md-editor-v3';
 import 'md-editor-v3/lib/style.css';
 
-
+const editorRef = ref<ExposeParam>();
 
 const props = defineProps({ content: String ,dialog: Boolean, file: String})
-const emit = defineEmits(['getMarkDownEditDialog','getContent'])
+const emit = defineEmits(['dialog','saveContent'])
 
 
 const ldialog = ref(props.dialog)
@@ -20,13 +19,17 @@ const handleUpload = (file) => {
 
 const update_dialog = () => {
     // console.log('update', ldialog.value)
-    emit('getMDEditDialog', ldialog.value);
+    emit('dialog', ldialog.value);
 }
 const update_content = () => {
     // console.log('update', ldialog.value)
-    emit('getMDEditDialog', ldialog.value);
-    emit('getContent', {'key':props.file, 'doc': text.value});
+    emit('dialog', ldialog.value);
+    emit('saveContent', {'key':props.file, 'doc': text.value});
 }
+
+onMounted(() => {
+    editorRef.value?.togglePreview(false);
+})
 </script>
 
 <template>
@@ -40,8 +43,9 @@ const update_content = () => {
             Markdown Editor
         </v-card-title-->
         <v-card-text>
-            <MdEditor 
-            language="en-US"    
+            <MdEditor
+            ref="editorRef"
+            language="en-US"
             v-model="text" 
         />
         </v-card-text>
@@ -51,14 +55,14 @@ const update_content = () => {
             variant="text"
             @click="ldialog = false; update_dialog()"
             >
-            Close
+            Schliessen
             </v-btn>
             <v-btn
             color="primary"
             variant="text"
             @click="ldialog = false; update_content()"
             >
-            Save
+            Speichern
             </v-btn>
         </v-card-actions>
         </v-card>

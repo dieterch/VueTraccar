@@ -195,6 +195,21 @@ class Traccar:
         else: 
             return country
         
+    def _farestStandstill(self, stand_periods):
+        home = self._cfg['home']
+        # calculate the distance from home to each element of stand_periods and return the farest one
+        for p in stand_periods:
+            p['distance'] = self._distance(home, {'latitude': p['lat'], 'longitude': p['lng']})
+            if p['address'].find('+') > 0:
+                p['placeID'] = p['address'].split(' ')[0]
+                p['address'] = ' '.join(p['address'].split(' ')[1:])
+            else:
+                p['placeID'] = ''
+
+        stand_periods.sort(key=lambda x: x['distance'], reverse=True)
+        pfar = stand_periods[0]
+        return pfar
+    
     
     def _store_travel(self, lto, lfrom, travels, **kwargs):
         # store travel if it is longer than cfg['mindays'] and shorter than cfg['maxdays']
@@ -205,35 +220,31 @@ class Traccar:
             }
             #print(f"store travel: {lfrom.format('YYYY-MM-DD')} ({(lto - lfrom).days} Tage)")
             stand_periods = self._filter_standstill_periods(self._standstill_periods, **args)
-            tl = list(set([p['address'].split()[-1] for p in stand_periods if p['address'] != '']))
-            tl = [self._translate(t) for t in tl]
-            travel_name = ' '.join(tl)
-            
-            # for p in stand_periods:
-            #     print(p['address'])
-            # print(travel_name, '\n')
-                
-            travels.append({
-                'title': f"{lfrom.date()} bis {lto.date()} {travel_name}",
-                'from': { 
-                    'datetime': self._formatdate(lfrom),
-                    #'event': lfrom_ev, # for debug
-                    #'position': self.getPosition(cfg, lfrom_ev['positionId'])
-                },
-                'to': {
-                    'datetime': self._formatdate(lto),
-                    #'event': lto_ev, # for debug
-                    #'position': self.getPosition(cfg, lto_ev['positionId']),
-                    #'debug_events': [  # for debug
-                    #    e for e in dres \
-                    #    if ((arrow.get(e['serverTime']) > lfrom.shift(days=-2)) and 
-                    #        (arrow.get(e['serverTime']) < lto.shift(days=2)) and 
-                    #        (e['geofenceId'] == 1))
-                    #]
-                },
-                'tage': (lto - lfrom).days, # duration in days
-                'device': kwargs['deviceId'] if 'deviceId' in kwargs else self._cfg['devid']
-            })
+            far_sts = self._farestStandstill(stand_periods)
+            if far_sts['distance'] > 1: # store only if the farest standstill is more than 1 km away from home
+                travel_name = far_sts['address']
+                #  print(f"Travel: '{travel_name}' detected.") 
+                travels.append({
+                    'title': f"{lfrom.date()} bis {lto.date()} {travel_name}",
+                    'from': { 
+                        'datetime': self._formatdate(lfrom),
+                        #'event': lfrom_ev, # for debug
+                        #'position': self.getPosition(cfg, lfrom_ev['positionId'])
+                    },
+                    'to': {
+                        'datetime': self._formatdate(lto),
+                        #'event': lto_ev, # for debug
+                        #'position': self.getPosition(cfg, lto_ev['positionId']),
+                        #'debug_events': [  # for debug
+                        #    e for e in dres \
+                        #    if ((arrow.get(e['serverTime']) > lfrom.shift(days=-2)) and 
+                        #        (arrow.get(e['serverTime']) < lto.shift(days=2)) and 
+                        #        (e['geofenceId'] == 1))
+                        #]
+                    },
+                    'tage': (lto - lfrom).days, # duration in days
+                    'device': kwargs['deviceId'] if 'deviceId' in kwargs else self._cfg['devid']
+                })
         return travels
     
     # Travels
@@ -302,7 +313,7 @@ class Traccar:
                 content = file.read()
                 return {'md': content}
         else:
-            return {'md': f"please create '{file_path}'"}
+            return {'md': f"Bitte 'Bearbeiten' verwenden um Inhalt zu erstellen. "}
 
 
     def saveDocument(self, key, **kwargs):

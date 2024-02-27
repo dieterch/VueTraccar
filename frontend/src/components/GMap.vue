@@ -2,15 +2,10 @@
 import { ref } from "vue";
 import { GoogleMap, MarkerCluster, Marker, Polyline, InfoWindow } from "vue3-google-map";
 import { GoogleMapsLink } from "@/tools"
-import { polygone, center, zoom, locations, togglemarkers, togglepath, getMDDocument, saveMDDocument } from '@/app';
+import { polygone, center, zoom, locations, togglemarkers, togglepath, getMDDocument } from '@/app';
 import { maps_api_key } from '@/secret';
-import MarkdownViewDialog from "./MarkdownViewDialog.vue";
-import MarkdownEditDialog from "./MarkdownEditDialog.vue";
-import MDEditorDialog from "./MDEditorDialog.vue";
-import MDViewDialog from "./MDViewDialog.vue";
+import MDDialog from "./MDDialog.vue";
 
-
-// const center = ref({ lat: 47.389207790740315, lng: 11.774475611608988 });
 const flightPath = ref({
     path: polygone.value,
     geodesic: true,
@@ -26,63 +21,17 @@ function closeInfoWindows() {
     });
 }
 
-const markdownviewdialog = ref(false)
-const markdowneditdialog = ref(false)
-const mdeditdialog = ref(false)
-const mdviewdialog = ref(false)
+const mddialog = ref(false)
 const mode = ref('light')
-const content = ref(`## Markdown Basic Syntax
-
-I just love **bold text**. Italicized text is the _cat's meow_. At the command prompt, type "nano".
-
-My favorite markdown editor is [vue3-markdown](https://www.npmjs.com/package/vue3-markdown).
-
-1. First item
-2. Second item
-3. Third item
-
-> Dorothy followed her through many of the beautiful rooms in her castle.
-
-## GFM Extended Syntax
-
-Automatic URL Linking: https://www.npmjs.com/package/vue3-markdown
-
-~~The world is flat.~~ We now know that the world is round.
-
-- [x] Write the press release
-- [ ] Update the website
-- [ ] Contact the media
-
-| Syntax    | Description |
-| --------- | ----------- |
-| Header    | Title       |
-| Paragraph | Text        |`);
-
-const ncontent = ref('## nothing.')
-async function openviewdialog(key) {
-    console.log('openviewdialog', key)
-    const doc = await getMDDocument(key)
-    console.log('openviewdialog', doc)
-    ncontent.value = doc
-    markdownviewdialog.value = true
-}
-
-async function openmdviewdialog(key) {
-    console.log('openviewdialog', key)
-    ncontent.value = await getMDDocument(key)
-    // console.log('openviewdialog', doc)
-    mdviewdialog.value = true
-}
-
+const content = ref('');
 const file = ref('')
-async function openmdeditdialog(key) {
-    console.log('openeditdialog', key)
-    ncontent.value = await getMDDocument(key)
-    // console.log('openviewdialog', key, doc)
-    file.value = key
-    mdeditdialog.value = true
-}
 
+async function openmddialog(key) {
+    console.log('openmddialog', key)
+    content.value = await getMDDocument(key)
+    file.value = key
+    mddialog.value = true
+}
 </script>
 
 <template>
@@ -118,6 +67,13 @@ async function openmdeditdialog(key) {
                 >
                   {{ line }}
                 </h4>
+                <p> 
+                  <a 
+                  target="_blank" 
+                  :href="GoogleMapsLink(location.lat, location.lng)">
+                  Link zu Google Maps</a>
+                </p>
+
                 <table
                   style="width: 100%; text-align: left; margin-top: 5px;"
                 >
@@ -139,45 +95,13 @@ async function openmdeditdialog(key) {
                   </tr>
                 </table>
                 <p> 
-                  <a 
-                  target="_blank" 
-                  :href="GoogleMapsLink(location.lat, location.lng)">
-                  Link zu Google Maps</a>
-                </p>
-                <!--p>
                   <v-btn
                     color="primary"
                     class="ma-2"
                     size="x-small"
-                    @click="openviewdialog(location.key)"
-                    >
-                    Beschreibung
-                  </v-btn>
-                  <v-btn
-                    color="tertiary"
-                    class="ma-2"
-                    size="x-small"
-                    @click="markdowneditdialog = true"
+                    @click="openmddialog(location.key)"
                   >
-                  Beschreibung editieren
-                  </v-btn>
-                </p-->
-                <p> 
-                  <v-btn
-                    color="primary"
-                    class="ma-2"
-                    size="x-small"
-                    @click="openmdviewdialog(location.key)"
-                  >
-                    MD View
-                  </v-btn>
-                  <v-btn
-                    color="tertiary"
-                    class="ma-2"
-                    size="x-small"
-                    @click="openmdeditdialog(location.key)"
-                  >
-                    MD Editor
+                    Zusatzinfo
                   </v-btn>
                 </p>
               </div>
@@ -185,31 +109,12 @@ async function openmdeditdialog(key) {
         </InfoWindow>
         </Marker>
     </MarkerCluster>
-    <MarkdownViewDialog 
-      :content="ncontent"
-      :mode="mode"
-      :key="markdownviewdialog"
-      :dialog="markdownviewdialog"
-      @getMarkDownDialog="(e)=>{markdownviewdialog = e}" />
-    <MarkdownEditDialog
-      :dialog="markdowneditdialog"
-      :key="markdowneditdialog" 
-      @getMarkDownEditDialog="(e)=>{markdowneditdialog = e}"
-      @getContent="(e)=>{console.log(e)}"
-    />
-    <MDViewDialog 
-      :content="ncontent"
-      :mode="mode"
-      :key="mdviewdialog"
-      :dialog="mdviewdialog"
-      @getMDViewDialog="(e)=>{mdviewdialog = e}" />
-    <MDEditorDialog
-      :content="ncontent"
+    <MDDialog 
+      :content="content"
       :file="file"
-      :dialog="mdeditdialog"
-      :key="mdeditdialog" 
-      @getMDEditDialog="(e)=>{mdeditdialog = e}"
-      @getContent="(e)=>{saveMDDocument(e.key, e.doc)}"
-    />
+      :mode="mode"
+      :key="mddialog"
+      :dialog="mddialog"
+      @dialog="(e)=>{mddialog = e}" />
   </GoogleMap>
 </template>
