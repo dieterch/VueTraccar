@@ -1,5 +1,0 @@
-pushd /root/prog/python/VueTraccar
-tmux \
-new-session 'source _app' \; \
-#split-window 'source _startWorker' \; \
-#split-window -h 'source _rqinfo' \; \
