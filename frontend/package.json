@@ -10,6 +10,7 @@
   "dependencies": {
     "@mdi/font": "7.0.96",
     "axios": "^1.6.7",
+    "crypto-js": "^4.2.0",
     "md-editor-v3": "^4.11.3",
     "roboto-fontface": "*",
     "vue": "^3.3.0",
