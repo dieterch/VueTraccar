@@ -47,7 +47,6 @@ onMounted(() => {
                     :type="show1 ? 'text' : 'password'"
                     v-model="password" 
                     label="Password" 
-                    clearable
                     @click:append="show1 = !show1"
                 ></v-text-field>
                 <!--a href="#" class="text-body-2 font-weight-regular">Forgot Password?</a-->
