@@ -6,15 +6,11 @@ export const protocol = ref(window.location.protocol)
 
 
 export const dohash = async (password) => {
-    let hash = await CryptoJS.SHA512(password).toString(CryptoJS.enc.Hex);
-    console.log('password:', password, 'Hash:', hash);
+    return CryptoJS.SHA512(password).toString(CryptoJS.enc.Hex);
 }
 
 export const validPassword = async (password, hash) => {
-    let testhash = await CryptoJS.SHA512(password).toString(CryptoJS.enc.Hex);
-    //console.log('testhash:', testhash)
-    //console.log('Hash    :', hash);
-    //console.log(testhash === hash)
+    let testhash = CryptoJS.SHA512(password).toString(CryptoJS.enc.Hex);
     return testhash === hash;
 }  
 
