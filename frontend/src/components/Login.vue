@@ -8,6 +8,8 @@ const password = ref('');
 
 const props = defineProps({ authenticated: Boolean, hash: String })
 const emit = defineEmits(['authenticated'])
+const show1 = ref(false)
+const passord = ref('Password')
 
 const login = async() => {
     //console.log('login', password.value)
@@ -39,7 +41,15 @@ onMounted(() => {
             <v-form fast-fail @submit.prevent="login">
                 <!--v-text-field  variant="underlined" v-model="username" label="User Name"></v-text-field-->
 
-                <v-text-field variant="underlined" v-model="password" label="password"></v-text-field>
+                <v-text-field 
+                    variant="underlined" 
+                    :append-icon="show1 ? 'mdi-eye' : 'mdi-eye-off'"
+                    :type="show1 ? 'text' : 'password'"
+                    v-model="password" 
+                    label="Password" 
+                    clearable
+                    @click:append="show1 = !show1"
+                ></v-text-field>
                 <!--a href="#" class="text-body-2 font-weight-regular">Forgot Password?</a-->
 
                 <v-btn type="submit" variant="outlined" color="primary" block class="mt-2">Submit</v-btn>
