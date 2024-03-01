@@ -1,5 +1,6 @@
 source ./venv/bin/activate
 # fresh compile at startup
+python prepare.py
 pushd /root/prog/python/VueTraccar/frontend
 npm run justbuild
 popd

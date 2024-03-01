@@ -1,22 +1,22 @@
 import { ref } from 'vue'
 import axios from 'axios';
+import CryptoJS from 'crypto-js';
 export const host = ref(window.location.host)
 export const protocol = ref(window.location.protocol)   
 
 
-// export function setCookie(id, value) { 
-//     document.cookie = id + '=' + value; 
-// }
+export const dohash = async (password) => {
+    let hash = await CryptoJS.SHA512(password).toString(CryptoJS.enc.Hex);
+    console.log('password:', password, 'Hash:', hash);
+}
 
-// export function getCookie(id) {
-//     let value = document.cookie.match('(^|;)?' + id + '=([^;]*)(;|$)');
-//     return value ? unescape(value[2]) : null;
-//  }
-
-// export function deleteCookie(id) {
-//     document.cookie = id + '=;';
-
-//  }
+export const validPassword = async (password, hash) => {
+    let testhash = await CryptoJS.SHA512(password).toString(CryptoJS.enc.Hex);
+    //console.log('testhash:', testhash)
+    //console.log('Hash    :', hash);
+    //console.log(testhash === hash)
+    return testhash === hash;
+}  
 
 export const setCookie = (name, value, days = 7, path = '/') => {
     const expires = new Date(Date.now() + days * 864e5).toUTCString()
@@ -30,12 +30,10 @@ export const getCookie = (name) => {
     }, '')
 }
 
-export const deleteCookie = (name, path) => {
+export const deleteCookie = (name, path = '/') => {
     setCookie(name, '', -1, path)
 }
-
-
-
+  
 export function tracdate(mydate) { return mydate.toISOString().split('T')[0] + 'T00:00:00Z'}
 
 export function DECtoDMS(dd)

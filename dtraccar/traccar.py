@@ -31,7 +31,11 @@ class Traccar:
     @property
     def cfg(self):
         return self._cfg
-
+    
+    @property
+    def hash(self):
+        return self._cfg['vuetraccarhash']
+        
 # -------------------
 # api calls & caching
 # -------------------            

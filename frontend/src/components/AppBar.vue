@@ -2,7 +2,7 @@
 import { ref, mergeProps } from 'vue';
 import { startdate, stopdate, travel, travels, openSettingsDialog,
     distance, getTravels, renderMap, downloadkml } from '@/app';
-import { setCookie } from '@/tools'; 
+import { setCookie, deleteCookie } from '@/tools'; 
 
 function setStartDate(params) { 
     startdate.value = params;
@@ -23,7 +23,7 @@ async function update_travel(item) {
 
 }
 
-const menuitems = ref(['Debug', 'Export als KML']) //, 'Export als GPX', 'Export als CSV', 'Export als PDF'])
+const menuitems = ref(['Debug', 'Export als KML', 'Log Out']) //, 'Export als GPX', 'Export als CSV', 'Export als PDF'])
 async function domenu(item) {
     switch (item) {
         case 'Debug':
@@ -31,6 +31,9 @@ async function domenu(item) {
             break;
         case 'Export als KML':
             downloadkml()
+            break;
+        case 'Log Out':
+            deleteCookie('authenticated')
             break;
         case 'Export als GPX':
             //downloadgpx()
