@@ -91,7 +91,7 @@ async def plot():
 @app.route("/document/<key>", methods=['GET','POST'])
 async def document(key):
     await request.get_data()
-    pattern = re.compile("^marker([0-9]+)+$")
+    pattern = re.compile("^marker([0-9,M]+)+$")
     if not pattern.match(key):
         abort(400)
     else:

@@ -453,7 +453,7 @@ class Traccar:
                             'address': address[0]['formatted_address'], # 'address': 'Fiecht 1, 6235 Reith im Alpbachtal, Austria
                             'lat': plat,
                             'lng': plng,
-                            'key': f"marker{str(plat)[:7]}{str(plng)[:7]}".replace('.',''), # key
+                            'key': f"marker{str(plat)[:7]}{str(plng)[:7]}".replace('.','').replace('-','M'), # key
                             'infowindow': False # flag used to show/hide infowindow in the plot function
                         })
                     sample_period = [] # empty the sample period indepent if the period was long enough or not
