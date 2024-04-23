@@ -272,9 +272,14 @@ class Traccar:
                     if not self._return_valid(dres, ev, i):
                             continue                    # skip events that are too close to the next one
                     lto = arrow.get(ev['serverTime'])   # return to gefence from a trip detected, store in lto
-                    # lto_ev = ev                         # for debug
+                    # lto_ev = ev                       # for debug
                     travels =  self._store_travel(lto, lfrom, travels, **kwargs) # evaluate and store the travel
                     intravel = False                    # back from travel
+        # store the last travel if we are still in a travel
+        if intravel:
+            lto = arrow.get(self._route[-1]['fixTime']) # if we are still in a travel, set the end to last GPS point of previous day.
+            print(f"getTravels: still in travel, exit: {lfrom.format('YYYY-MM-DD HH:mm:ss')}, last update: {lto.format('YYYY-MM-DD HH:mm:ss')}") # for debug
+            travels =  self._store_travel(lto, lfrom, travels, **kwargs)
         return travels
 
     # return data to plot the route
