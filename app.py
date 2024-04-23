@@ -116,9 +116,9 @@ if __name__ == '__main__':
 ''')
     try:
         if 'PRODUCTION' in os.environ:
-            uvicorn.run('app:app', host='0.0.0.0', port=5999, log_level="info")
+            uvicorn.run('app:app', host='0.0.0.0', port=5998, log_level="info")
         else:
-            uvicorn.run('app:app', host='0.0.0.0', port=5999, log_level="info", reload=True, reload_dirs =['.','./dist'], reload_includes=['*.py','*.js','*.toml'])
+            uvicorn.run('app:app', host='0.0.0.0', port=5998, log_level="info", reload=True, reload_dirs =['.','./dist'], reload_includes=['*.py','*.js','*.toml'])
             #asyncio.run(app.run_task(host='0.0.0.0', port=5999, debug=True))
     except Exception as e:
         print(str(e))
