@@ -277,7 +277,8 @@ class Traccar:
                     intravel = False                    # back from travel
         # store the last travel if we are still in a travel
         if intravel:
-            lto = arrow.get(self._route[-1]['fixTime']) # if we are still in a travel, set the end to last GPS point of previous day.
+            # lto = arrow.get(self._route[-1]['fixTime']) # if we are still in a travel, set the end to last GPS point of previous day.
+            lto = arrow.now() # if we are still in a travel, set the end to now.
             print(f"getTravels: still in travel, exit: {lfrom.format('YYYY-MM-DD HH:mm:ss')}, last update: {lto.format('YYYY-MM-DD HH:mm:ss')}") # for debug
             travels =  self._store_travel(lto, lfrom, travels, **kwargs)
         return travels
