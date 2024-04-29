@@ -58,7 +58,8 @@ class Traccar:
             cfg = self._cfg
             r = requests.get(
                 cfg['url'] + '/api/reports/events', 
-                auth=(cfg['user'], cfg['password']), 
+                auth=(cfg['user'], cfg['password']),
+                headers={"Accept": "application/json; charset=utf-8"},
                 params=parameters,
                 timeout=100.000)
             r.raise_for_status()
