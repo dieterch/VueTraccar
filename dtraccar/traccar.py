@@ -128,7 +128,8 @@ class Traccar:
         args={
             'deviceId': kwargs['deviceId'],
             'from': lastdate, 
-            'to': self._formatdate(arrow.now().date()) # limit to today to enable caching
+            #'to': self._formatdate(arrow.now().date()) # limit to today to enable caching => lead to 1 day delay while on trip
+            'to': self._formatdate(arrow.now()) # immediate update ?
         }
         _newroute = self._getRouteData(**args)
         
@@ -136,6 +137,7 @@ class Traccar:
         newroute, newstandstill_periods = self._analyzeextendedroute([r for r in _newroute if r['id'] > lastid])
         # add the new records to the self._route
         self._route.extend(newroute)
+        # add the new standstill periods to the self._standstill_periods
         self._standstill_periods.extend(newstandstill_periods)
         print(f"getRouteData: {len(newroute)} new records added to route, {len(self._route)} total records.")
         print(f"getRouteData: {len(newstandstill_periods)} new standstill periods added to standstill_periods, {len(self._standstill_periods)} total records.")
