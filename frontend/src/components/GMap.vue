@@ -103,6 +103,14 @@ async function openmddialog(key) {
                   >
                     Zusatzinfo
                   </v-btn>
+                  <v-btn
+                    color="primary"
+                    class="ma-2"
+                    size="x-small"
+                    @click="openmddialog(location.key)"
+                  >
+                    Tagebuch
+                  </v-btn>
                 </p>
               </div>
           </div>
