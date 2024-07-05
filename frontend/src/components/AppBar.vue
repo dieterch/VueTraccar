@@ -114,13 +114,13 @@ getTravels()
                 nosize="small"
                 @click="renderMap"
             ></v-btn>
-            <v-btn 
+            <!--v-btn 
                 icon="mdi-set-all" 
                 class="ml-0"
                 nosize="small"
                 @click="renderMap"
             ></v-btn>
-            <!--v-btn icon="mdi-dots-vertical" href="/streamurl.xspf" size="small"></v-btn>
+            <v-btn icon="mdi-dots-vertical" href="/streamurl.xspf" size="small"></v-btn>
             <v-menu 
                 location="bottom"
                 >
