@@ -49,6 +49,11 @@ async def devices():
 async def prefechtroute():
     return T.prefetchRouteData()
 
+# route to call for traccar data
+@app.route("/delprefetch")
+async def delprefech():
+    return T.del_prefetch()
+
 @app.route("/route", methods=['POST'])
 async def route():
     await request.get_data()

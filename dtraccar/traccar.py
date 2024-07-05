@@ -109,7 +109,14 @@ class Traccar:
         t3 = time.time()
         print(f"route prefetch : {len(self._route)} recs, store {t1-t0:.2f} sec, analyze {t2-t1:.2f}, total {t3-t0:.2f} sec.")
         return {"records" : len(self._route), "time": t1-t0}
-        
+    
+    def del_prefetch(self, deviceId=4):
+        if os.path.isfile(self._pfname(deviceId)):
+            os.remove(self._pfname(deviceId))
+            return f"file {self._pfname(deviceId)} deleted."
+        else:
+            return f"file {self._pfname(deviceId)} not found."
+    
     def getRouteData(self, **kwargs):
         if hasattr(self, '_route'):
             if not os.path.isfile(self._pfname(kwargs['deviceId'])):

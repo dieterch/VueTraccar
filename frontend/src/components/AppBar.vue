@@ -1,7 +1,7 @@
 <script setup>
 import { ref, mergeProps } from 'vue';
 import { startdate, stopdate, travel, travels, openSettingsDialog,
-    distance, getTravels, renderMap, downloadkml } from '@/app';
+    distance, getTravels, renderMap, downloadkml, delprefetch} from '@/app';
 import { setCookie, deleteCookie } from '@/tools'; 
 
 function setStartDate(params) { 
@@ -23,7 +23,7 @@ async function update_travel(item) {
 
 }
 
-const menuitems = ref(['Debug', 'Export als KML', 'Log Out']) //, 'Export als GPX', 'Export als CSV', 'Export als PDF'])
+const menuitems = ref(['Debug', 'Export als KML', 'Log Out', 'Prefetch again']) //, 'Export als GPX', 'Export als CSV', 'Export als PDF'])
 async function domenu(item) {
     switch (item) {
         case 'Debug':
@@ -34,6 +34,9 @@ async function domenu(item) {
             break;
         case 'Log Out':
             deleteCookie('authenticated')
+            break;
+        case 'Prefetch again':
+            delprefetch()
             break;
         case 'Export als GPX':
             //downloadgpx()
@@ -108,6 +111,12 @@ getTravels()
             <v-btn 
                 icon="mdi-reload" 
                 class="ml-2"
+                nosize="small"
+                @click="renderMap"
+            ></v-btn>
+            <v-btn 
+                icon="mdi-set-all" 
+                class="ml-0"
                 nosize="small"
                 @click="renderMap"
             ></v-btn>

@@ -76,6 +76,11 @@ export async function downloadkml() {
         download(response, travel.value.title + '.kml')
 }
 
+export async function delprefetch() {
+    let response =  await rget('/delprefetch')
+    console.log(response)
+}
+
 export const polygone = ref([])
 export const center = ref({lat: 0, lng: 0})
 export const zoom = ref(10)
