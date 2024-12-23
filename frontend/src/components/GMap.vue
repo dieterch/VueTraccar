@@ -36,13 +36,13 @@ async function openmddialog(key) {
 
 <template>
   <GoogleMap
-    :api-key="maps_api_key" 
-    style="width: 100%; height: calc(100vh - 48px);" 
-    :center="center" 
-    :zoom="zoom" 
+    :api-key="maps_api_key"
+    style="width: 100%; height: calc(100vh - 48px);"
+    :center="center"
+    :zoom="zoom"
     @click="closeInfoWindows">
     <Polyline v-if="togglepath" :options="flightPath" />
-    <MarkerCluster 
+    <MarkerCluster
       v-if="togglemarkers"
     >
         <Marker
@@ -52,7 +52,7 @@ async function openmddialog(key) {
           @click="closeInfoWindows"
         >
         <!--InfoWindow :options="{ position: location, content: 'Hello World!' }" /-->
-        <InfoWindow 
+        <InfoWindow
           :options="{ position: location, minWidth: 250}"
           v-model="location.infowindow"
         >
@@ -67,9 +67,9 @@ async function openmddialog(key) {
                 >
                   {{ line }}
                 </h4>
-                <p> 
-                  <a 
-                  target="_blank" 
+                <p>
+                  <a
+                  target="_blank"
                   :href="GoogleMapsLink(location.lat, location.lng)">
                   Link zu Google Maps</a>
                 </p>
@@ -94,22 +94,22 @@ async function openmddialog(key) {
                     <td>{{ location.period }}h</td>
                   </tr>
                 </table>
-                <p> 
-                  <v-btn
+                <p>
+                  <!--v-btn
                     color="primary"
                     class="ma-2"
                     size="x-small"
                     @click="openmddialog(location.key)"
                   >
                     Zusatzinfo
-                  </v-btn>
+                  </v-btn-->
                   <v-btn
                     color="primary"
                     class="ma-2"
                     size="x-small"
                     @click="openmddialog(location.key)"
                   >
-                    Tagebuch
+                    zum Tagebuch
                   </v-btn>
                 </p>
               </div>
@@ -117,7 +117,7 @@ async function openmddialog(key) {
         </InfoWindow>
         </Marker>
     </MarkerCluster>
-    <MDDialog 
+    <MDDialog
       :content="content"
       :file="file"
       :mode="mode"
