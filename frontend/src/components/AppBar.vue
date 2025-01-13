@@ -2,12 +2,12 @@
 import { ref, mergeProps } from 'vue';
 import { startdate, stopdate, travel, travels, openSettingsDialog,
     distance, getTravels, renderMap, downloadkml, delprefetch} from '@/app';
-import { setCookie, deleteCookie } from '@/tools'; 
+import { setCookie, deleteCookie } from '@/tools';
 
-function setStartDate(params) { 
+function setStartDate(params) {
     startdate.value = params;
 }
-function setStopDate(params) { 
+function setStopDate(params) {
     stopdate.value = params;
 }
 
@@ -55,7 +55,7 @@ getTravels()
 
 <template>
     <v-app-bar
-        name="menu-bar" 
+        name="menu-bar"
         density="compact"
         color="grey-darken-3"
         :elevation="5"
@@ -92,14 +92,14 @@ getTravels()
                 :label="`${travels.length} Reisen`"
                 flat
                 density="compact"
-                prepend-icon="mdi-rv-truck"
+                prepend-icon="mdi-dots-vertical"
                 v-model="travel"
                 :items="travels"
                 @update:model-value="update_travel"
                 class="mt-5 ml-6 mb-0 pb-0"
             ></v-select>
-            <v-chip 
-                variant="flat" 
+            <v-chip
+                variant="flat"
                 color="transparent"
                 class="ml-2">
                 {{ distance }}
@@ -108,27 +108,27 @@ getTravels()
             <DateDialog :key="startdate" :datum="stopdate" @getDate="setStopDate"/>
         </template>
         <template v-slot:append>
-            <v-btn 
-                icon="mdi-reload" 
+            <v-btn
+                icon="mdi-reload"
                 class="ml-2"
                 nosize="small"
                 @click="renderMap"
             ></v-btn>
-            <!--v-btn 
-                icon="mdi-set-all" 
+            <!--v-btn
+                icon="mdi-set-all"
                 class="ml-0"
                 nosize="small"
                 @click="renderMap"
-            ></v-btn>
-            <v-btn icon="mdi-dots-vertical" href="/streamurl.xspf" size="small"></v-btn>
-            <v-menu 
+            ></v-btn -->
+            <v-btn icon= "mdi-rv-truck" href="https://tagebuch.smallfamilybusiness.net/" size="small"></v-btn>
+            <!-- v-menu
                 location="bottom"
                 >
                 <template v-slot:activator="{ props }">
-                    <v-btn 
-                        icon="mdi-palette-swatch" 
-                        @click="toggleTheme" 
-                        v-bind="props" 
+                    <v-btn
+                        icon="mdi-palette-swatch"
+                        @click="toggleTheme"
+                        v-bind="props"
                         size="small"
                     ></v-btn>
                 </template>
@@ -147,7 +147,7 @@ getTravels()
                             >{{ key }}</v-list-item-title>
                         </v-list-item>
                 </v-list>
-            </v-menu-->            
-        </template>        
+            </v-menu-->
+        </template>
     </v-app-bar>
 </template>

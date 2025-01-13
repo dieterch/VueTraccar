@@ -12,10 +12,10 @@ const emit = defineEmits(['dialog','saveContent'])
 
 const ldialog = ref(props.dialog)
 const text = ref(props.content);
-const handleUpload = (file) => {
-  console.log(file)
-  return 'https://i.postimg.cc/52qCzTVw/pngwing-com.png'
-}
+// const handleUpload = (file) => {
+//   console.log(file)
+//   return 'https://i.postimg.cc/52qCzTVw/pngwing-com.png'
+// }
 
 const update_dialog = () => {
     // console.log('update', ldialog.value)
@@ -46,7 +46,7 @@ onMounted(() => {
             <MdEditor
             ref="editorRef"
             language="en-US"
-            v-model="text" 
+            v-model="text"
         />
         </v-card-text>
         <v-card-actions>
