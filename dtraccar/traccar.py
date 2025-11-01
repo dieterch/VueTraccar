@@ -209,21 +209,77 @@ class Traccar:
         else: 
             return country
         
+    # def _farestStandstill(self, stand_periods):
+    #     home = self._cfg['home']
+    #     # calculate the distance from home to each element of stand_periods and return the farest one
+    #     for p in stand_periods:
+    #         p['distance'] = self._distance(home, {'latitude': p['lat'], 'longitude': p['lng']})
+    #         if p['address'].find('+') > 0:
+    #             p['placeID'] = p['address'].split(' ')[0]
+    #             p['address'] = ' '.join(p['address'].split(' ')[1:])
+    #         else:
+    #             p['placeID'] = ''
+
+    #     stand_periods.sort(key=lambda x: x['distance'], reverse=True)
+    #     pfar = stand_periods[0]
+    #     return pfar
+    
     def _farestStandstill(self, stand_periods):
         home = self._cfg['home']
-        # calculate the distance from home to each element of stand_periods and return the farest one
+        # handle empty list
+        if not stand_periods:
+            return {'distance': 0.0, 'address': '', 'lat': home.get('latitude'), 'lng': home.get('longitude'), 'placeID': ''}
+        # calculate the distance from home to each element of stand_periods and return the farthest one
         for p in stand_periods:
-            p['distance'] = self._distance(home, {'latitude': p['lat'], 'longitude': p['lng']})
-            if p['address'].find('+') > 0:
-                p['placeID'] = p['address'].split(' ')[0]
-                p['address'] = ' '.join(p['address'].split(' ')[1:])
+            plat = p.get('lat', home.get('latitude'))
+            plng = p.get('lng', home.get('longitude'))
+            p['distance'] = self._distance(home, {'latitude': plat, 'longitude': plng})
+            address = p.get('address', '')
+            if '+' in address:
+                p['placeID'] = address.split(' ')[0]
+                p['address'] = ' '.join(address.split(' ')[1:])
             else:
                 p['placeID'] = ''
-
         stand_periods.sort(key=lambda x: x['distance'], reverse=True)
         pfar = stand_periods[0]
         return pfar
+
     
+    # def _store_travel(self, lto, lfrom, travels, **kwargs):
+    #     # store travel if it is longer than cfg['mindays'] and shorter than cfg['maxdays']
+    #     if ((lto - lfrom).days > self._cfg['mindays']) & ((lto - lfrom).days < self._cfg['maxdays']):
+    #         args = {
+    #             'from' : lfrom,
+    #             'to' : lto
+    #         }
+    #         #print(f"store travel: {lfrom.format('YYYY-MM-DD')} ({(lto - lfrom).days} Tage)")
+    #         stand_periods = self._filter_standstill_periods(self._standstill_periods, **args)
+    #         far_sts = self._farestStandstill(stand_periods)
+    #         if far_sts['distance'] > 1: # store only if the farest standstill is more than 1 km away from home
+    #             travel_name = far_sts['address']
+    #             #  print(f"Travel: '{travel_name}' detected.") 
+    #             travels.append({
+    #                 'title': f"{lfrom.date()} bis {lto.date()} {travel_name}",
+    #                 'from': { 
+    #                     'datetime': self._formatdate(lfrom),
+    #                     #'event': lfrom_ev, # for debug
+    #                     #'position': self.getPosition(cfg, lfrom_ev['positionId'])
+    #                 },
+    #                 'to': {
+    #                     'datetime': self._formatdate(lto),
+    #                     #'event': lto_ev, # for debug
+    #                     #'position': self.getPosition(cfg, lto_ev['positionId']),
+    #                     #'debug_events': [  # for debug
+    #                     #    e for e in dres \
+    #                     #    if ((arrow.get(e['serverTime']) > lfrom.shift(days=-2)) and 
+    #                     #        (arrow.get(e['serverTime']) < lto.shift(days=2)) and 
+    #                     #        (e['geofenceId'] == 1))
+    #                     #]
+    #                 },
+    #                 'tage': (lto - lfrom).days, # duration in days
+    #                 'device': kwargs['deviceId'] if 'deviceId' in kwargs else self._cfg['devid']
+    #             })
+    #     return travels
     
     def _store_travel(self, lto, lfrom, travels, **kwargs):
         # store travel if it is longer than cfg['mindays'] and shorter than cfg['maxdays']
@@ -232,35 +288,25 @@ class Traccar:
                 'from' : lfrom,
                 'to' : lto
             }
-            #print(f"store travel: {lfrom.format('YYYY-MM-DD')} ({(lto - lfrom).days} Tage)")
             stand_periods = self._filter_standstill_periods(self._standstill_periods, **args)
             far_sts = self._farestStandstill(stand_periods)
-            if far_sts['distance'] > 1: # store only if the farest standstill is more than 1 km away from home
-                travel_name = far_sts['address']
-                #  print(f"Travel: '{travel_name}' detected.") 
-                travels.append({
-                    'title': f"{lfrom.date()} bis {lto.date()} {travel_name}",
-                    'from': { 
-                        'datetime': self._formatdate(lfrom),
-                        #'event': lfrom_ev, # for debug
-                        #'position': self.getPosition(cfg, lfrom_ev['positionId'])
-                    },
-                    'to': {
-                        'datetime': self._formatdate(lto),
-                        #'event': lto_ev, # for debug
-                        #'position': self.getPosition(cfg, lto_ev['positionId']),
-                        #'debug_events': [  # for debug
-                        #    e for e in dres \
-                        #    if ((arrow.get(e['serverTime']) > lfrom.shift(days=-2)) and 
-                        #        (arrow.get(e['serverTime']) < lto.shift(days=2)) and 
-                        #        (e['geofenceId'] == 1))
-                        #]
-                    },
-                    'tage': (lto - lfrom).days, # duration in days
-                    'device': kwargs['deviceId'] if 'deviceId' in kwargs else self._cfg['devid']
-                })
+            # if no standstill or too close to home, skip storing the travel
+            if not far_sts or far_sts.get('distance', 0) <= 1:
+                return travels
+            travel_name = far_sts['address']
+            travels.append({
+                'title': f"{lfrom.date()} bis {lto.date()} {travel_name}",
+                'from': { 
+                    'datetime': self._formatdate(lfrom),
+                },
+                'to': {
+                    'datetime': self._formatdate(lto),
+                },
+                'tage': (lto - lfrom).days, # duration in days
+                'device': kwargs['deviceId'] if 'deviceId' in kwargs else self._cfg['devid']
+            })
         return travels
-    
+
     # Travels
     def getTravels(self, **kwargs):
         if not hasattr(self, '_route'):
