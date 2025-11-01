@@ -15,7 +15,9 @@ import {
 } from '@/app';
 
 
-const authenticated = ref(false);
+// const authenticated = ref(false);
+const authenticated = ref(true);     // no authentication needed, sso forward-auth implemented. Dieter 28.1.2025
+
 </script>
 
 <template>

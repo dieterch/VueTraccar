@@ -1,5 +1,1 @@
-Erster Stop
-
-<a href="https://share.icloud.com/photos/030yCQkjDrEsWCRoJ2OH__BkA" target="_blank">Bild</a>
-
-<a href="https://share.icloud.com/photos/030yCQkjDrEsWCRoJ2OH__BkA" target="_blank">Image Link</a>
+<a href="https://tagebuch.smallfamilybusiness.net/neuenburger-see/"  target="_parent">Neuenburger See</a>
