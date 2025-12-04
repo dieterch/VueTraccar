@@ -17,6 +17,9 @@ import uuid
 import warnings
 import os
 import re
+import yaml
+from pathlib import Path
+from datetime import datetime
 warnings.filterwarnings("ignore")
 
 ############################## Class Interface ##############################
@@ -280,32 +283,184 @@ class Traccar:
     #                 'device': kwargs['deviceId'] if 'deviceId' in kwargs else self._cfg['devid']
     #             })
     #     return travels
-    
+
+    #####################################################
+    ## patch functions von ChatGTP. Start ###############
+    #####################################################
+
+    def _parse_date(self, value):
+        """
+        Accepts ISO strings like '2024-07-10' or '2024-07-10T12:00:00+02:00'
+        Always returns an arrow object (timezone aware).
+        """
+        if isinstance(value, str):
+            try:
+                return arrow.get(value)
+            except Exception as e:
+                print(f"[parse_date] ERROR parsing '{value}': {e}")
+                raise
+
+        if isinstance(value, arrow.Arrow):
+            return value
+
+        raise TypeError(f"[parse_date] Unsupported type: {type(value)}")
+
+
+
+    def _write_travel_patches(self):
+        patch_file = Path("travels.yml")
+        with patch_file.open("w") as f:
+            yaml.dump(
+                self._travel_patches,
+                f,
+                sort_keys=False,     # Reihenfolge beibehalten
+                allow_unicode=True
+            )
+
+    def _register_travel_key(self, key: str):
+        if key in self._travel_patches:
+            return
+
+        print(f"new travel key detected: '{key}' → adding empty patch entry")
+
+        self._travel_patches[key] = {
+            "title": None,
+            "from": None,
+            "to": None,
+            "exclude": None,
+        }
+
+        self._write_travel_patches()
+
+
+    def _clean_patches(self, data: dict):
+        cleaned = {}
+
+        for key, entry in data.items():
+            if entry is None:
+                continue
+            
+            # Entry sollte ein dict sein
+            if isinstance(entry, dict):
+                # nur Felder behalten, die einen tatsächlichen Wert besitzen
+                filtered = {k: v for k, v in entry.items() if v not in (None, "", {})}
+
+                cleaned[key] = filtered
+            else:
+                cleaned[key] = entry
+
+        return cleaned
+
+    def _load_travel_patches(self):
+        patch_file = Path("travels.yml")
+
+        if not patch_file.exists():
+            print("travels.yml not found → starting with empty patches")
+            return {}
+
+        with patch_file.open() as f:
+            data = yaml.safe_load(f) or {}
+
+        print(f"loaded patches: {len(data)} entries from travels.yml")
+
+        cleaned = self._clean_patches(data)
+        if cleaned != data:
+            print(f"cleaned patches: removed empty/null fields")
+
+        return cleaned
+
+
     def _store_travel(self, lto, lfrom, travels, **kwargs):
-        # store travel if it is longer than cfg['mindays'] and shorter than cfg['maxdays']
+
+        print(f"evaluating travel: {lfrom.format('YYYY-MM-DD HH:mm')} → {lto.format('YYYY-MM-DD HH:mm')}")
+
         if ((lto - lfrom).days > self._cfg['mindays']) & ((lto - lfrom).days < self._cfg['maxdays']):
-            args = {
-                'from' : lfrom,
-                'to' : lto
-            }
+
+            args = {'from': lfrom, 'to': lto}
             stand_periods = self._filter_standstill_periods(self._standstill_periods, **args)
             far_sts = self._farestStandstill(stand_periods)
-            # if no standstill or too close to home, skip storing the travel
+
             if not far_sts or far_sts.get('distance', 0) <= 1:
                 return travels
-            travel_name = far_sts['address']
-            travels.append({
-                'title': f"{lfrom.date()} bis {lto.date()} {travel_name}",
-                'from': { 
-                    'datetime': self._formatdate(lfrom),
-                },
-                'to': {
-                    'datetime': self._formatdate(lto),
-                },
-                'tage': (lto - lfrom).days, # duration in days
-                'device': kwargs['deviceId'] if 'deviceId' in kwargs else self._cfg['devid']
-            })
+
+            travel_key = far_sts['address']
+            print(f"farthest standstill: {travel_key} (distance {far_sts.get('distance'):.1f} km)")
+
+            self._register_travel_key(travel_key)           # stellt sicher, dass Key existiert
+            patches = self._travel_patches.get(travel_key, {})
+            print(f"patches found for '{travel_key}': {patches}")
+
+            # Exclude?
+            if patches.get("exclude", False):
+                print(f"travel '{travel_key}' excluded by patch")
+                return travels
+
+            # Defaults
+            from_dt = lfrom
+            to_dt = lto
+
+            # Apply overrides
+            if "from" in patches:
+                if patches["from"]:
+                    print(f"patching FROM: {from_dt} → {patches['from']}")
+                    from_dt = self._parse_date(patches["from"])
+
+            if "to" in patches:
+                if patches["to"]:
+                    print(f"patching TO:   {to_dt} → {patches['to']}")
+                    to_dt = self._parse_date(patches["to"])
+
+
+            # Duration
+            tage = max(0, (to_dt - from_dt).days)
+
+            # Titel-Patching
+            title = patches.get("title")
+            if not title:
+                print(f"auto-title generated for '{travel_key}'")
+                title = f"{travel_key}"
+
+            travel = {
+                'title': f"{from_dt.date()} bis {to_dt.date()} {title}",
+                'from': {'datetime': self._formatdate(from_dt)},
+                'to':   {'datetime': self._formatdate(to_dt)},
+                'tage': tage,
+                'device': kwargs.get('deviceId', self._cfg['devid'])
+            }
+
+            travels.append(travel)
+
         return travels
+
+    #####################################################
+    ## patch functions von ChatGTP. Ende ###############
+    #####################################################
+
+    # def _store_travel(self, lto, lfrom, travels, **kwargs):
+    #     # store travel if it is longer than cfg['mindays'] and shorter than cfg['maxdays']
+    #     if ((lto - lfrom).days > self._cfg['mindays']) & ((lto - lfrom).days < self._cfg['maxdays']):
+    #         args = {
+    #             'from' : lfrom,
+    #             'to' : lto
+    #         }
+    #         stand_periods = self._filter_standstill_periods(self._standstill_periods, **args)
+    #         far_sts = self._farestStandstill(stand_periods)
+    #         # if no standstill or too close to home, skip storing the travel
+    #         if not far_sts or far_sts.get('distance', 0) <= 1:
+    #             return travels
+    #         travel_name = far_sts['address']
+    #         travels.append({
+    #             'title': f"{lfrom.date()} bis {lto.date()} {travel_name}",
+    #             'from': { 
+    #                 'datetime': self._formatdate(lfrom),
+    #             },
+    #             'to': {
+    #                 'datetime': self._formatdate(lto),
+    #             },
+    #             'tage': (lto - lfrom).days, # duration in days
+    #             'device': kwargs['deviceId'] if 'deviceId' in kwargs else self._cfg['devid']
+    #         })
+    #     return travels
 
     # Travels
     def getTravels(self, **kwargs):
@@ -313,6 +468,7 @@ class Traccar:
             self.getRouteData(**kwargs)                 # get the route & standstill data
         dres = [rec for rec in self.getEvents(**kwargs) if (   # only geofence #1 (Stellplatz Fiecht), Enter und Exit Events
             (rec['type'] == "geofenceEnter" or rec['type'] == "geofenceExit") and rec['geofenceId'] == 1)]  # filter for geofence events
+        self._travel_patches = self._load_travel_patches()
         travels = []
         intravel = False                                # state variable intravel
 

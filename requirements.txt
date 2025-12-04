@@ -51,6 +51,7 @@ Pygments==2.17.2
 python-dateutil==2.8.2
 pytz==2024.1
 pyzmq==25.1.2
+PyYAML==6.0.2
 Quart==0.19.4
 quart-cors==0.7.0
 redis==5.0.1
