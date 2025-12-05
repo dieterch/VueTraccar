@@ -421,7 +421,7 @@ class Traccar:
                 title = f"{travel_key}"
 
             travel = {
-                'title': f"{from_dt.date()} bis {to_dt.date()} {title}",
+                'title': title,
                 'from': {'datetime': self._formatdate(from_dt)},
                 'to':   {'datetime': self._formatdate(to_dt)},
                 'tage': tage,
